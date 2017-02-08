@@ -37,6 +37,32 @@ func Push(url string, parent_id int) (int64, error) {
 	return id, nil
 }
 
+func PushMulti(urls []string, parent_id int) ([]int64, error) {
+	var ids []int64
+	if db != nil {
+		stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
+		if err != nil { return ids, err }
+
+		tx, err := db.Begin()
+		if err != nil { return ids, err }
+
+		for _, url:= range urls {
+			res, err := tx.Stmt(stmt).Exec(url, "2017-01-31 10:13", "waiting", parent_id)
+			if err != nil { return ids, err }
+
+			id, err := res.LastInsertId()
+			if err != nil { return ids, err }
+
+			ids = append(ids, id)
+		}
+		tx.Commit()
+	} else {
+		log.Fatal("Database not initialized")
+	}
+
+	return ids, nil
+}
+
 // Returns a node to be crawled, returns error in case fo failure
 func Pop() (Node, error) {
 	if db != nil {
@@ -92,7 +118,7 @@ func Pop() (Node, error) {
 // Update status of row to success or failure
 func Update(pk, match_count int64, status string) (error) {
 	// If status is not success or failure then return error
-	if !(status == "success" || status == "failure") {
+	if !(status == Success || status == ValidationFailed) {
 		return errors.New("Invalid input")
 	}
 

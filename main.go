@@ -9,7 +9,6 @@ func main() {
 
 	crawler.Process(config_path, ch_exit)
 
-
 	<-ch_exit
 }
 

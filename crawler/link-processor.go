@@ -7,17 +7,19 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/therahulprasad/spiderman/crawler/config"
 	"net/url"
+	"github.com/go-playground/log"
+	"errors"
 )
 
 func link_processor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool) {
 	// TODO: How do I persist all the details before killing
 	for {
 		select {
-		case doc := <-docs:
-			ls_url(doc, configuration)
 		case <- kill:
 			killLinkProcessorAck <- true
-			break
+			return
+		case doc := <-docs:
+			ls_url(doc, configuration)
 		}
 	}
 }
@@ -27,29 +29,37 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 		fmt.Println("ls_url")
 	}
 
+	var finalLinks []string
 	// Find all the links and queue it
 	doc.Find("a").Each(func (i int, s *goquery.Selection) {
 		link, ok := s.Attr("href")
 		if ok {
-			err := queue_url(link, configuration)
-			if err != nil {
-				fmt.Println(err.Error())
+			finalLink, ok, err := validate_url(link, configuration)
+			if err != nil { fmt.Println(err.Error()) }
+
+			if ok {
+				finalLinks = append(finalLinks, finalLink)
 			}
 		}
 	})
+
+	if len(finalLinks) > 0 {
+		_, err := db.PushMulti(finalLinks, 0)
+		if err != nil {log.Println(err.Error())}
+	}
 }
 
-func queue_url(link string, configuration config.Configuration) error {
+func validate_url(link string, configuration config.Configuration) (string, bool, error) {
 	if configuration.Debug {
-		fmt.Println("queue_url")
+		fmt.Println("validate_url")
 	}
 
 	// If link is empty do nothing
-	if link == "" { return nil }
+	if link == "" { return "", false, errors.New("Empty link") }
 
 	// Find out domain of the url
 	rootUrl, err := url.Parse(configuration.RootURL)
-	if err != nil { return err }
+	if err != nil {return "", false, err}
 
 	domainUrl := ""
 	domainUrl += rootUrl.Scheme + "://"
@@ -75,16 +85,21 @@ func queue_url(link string, configuration config.Configuration) error {
 	matched := true
 	if configuration.LinkValidator != "" {
 		matched, err =  regexp.MatchString(configuration.LinkValidator, finalLink)
-		if err != nil {return err}
+		if err != nil {return "", false, err}
 	}
 
+	// Check if links needs to be sanitized
+	if matched && configuration.LinkSanitizer != "" {
+		re := regexp.MustCompile(configuration.LinkSanitizer)
+		finalLink = re.ReplaceAllString(finalLink, configuration.LinkSanitizerReplacement)
+	}
+
+	return finalLink, matched, nil
 	// Push URL duplicated will be ignored
-	if matched {
-		_, err := db.Push(finalLink, 0)
-		if err != nil {
-			fmt.Println("Push Error: " + finalLink + " : " + err.Error())
-		}
-	}
-
-	return nil
+	//if matched {
+	//	_, err := db.Push(finalLink, 0)
+	//	if err != nil {
+	//		fmt.Println("Push Error: " + finalLink + " : " + err.Error())
+	//	}
+	//}
 }

@@ -11,3 +11,8 @@ type Node struct {
 	ParentId int
 	Matches int64
 }
+
+const (
+	ValidationFailed = "ValidationFailed"
+	Success = "Success"
+)

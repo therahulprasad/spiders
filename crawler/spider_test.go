@@ -23,7 +23,7 @@ func TestAll(t *testing.T) {
 		t.Error("Link mismatch")
 	}
 
-	err = db.Update(node.Id, 1, "success")
+	err = db.Update(node.Id, 1, db.Success)
 	if err != nil {
 		t.Error(err.Error())
 	}

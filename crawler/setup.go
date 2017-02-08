@@ -48,6 +48,10 @@ func Setup(config_path string) config.Configuration {
 		log.Fatal("Could not create data directory")
 	}
 
+	if configuration.WebCount <= 0 {
+		log.Fatal("web_count must be more than 0")
+	}
+
 	// Initiate database in the directory
 	// TODO: If resume flag is set then Database must already be present
 	db.Setup(configuration)
