@@ -33,13 +33,13 @@ func handle_sig_term(chQuit chan os.Signal, killLinkProcessor, killLinkProcessor
 	terminate(killLinkProcessor, killLinkProcessorAck, ch_exit)
 }
 
-func test() {
-	re := regexp.MustCompile("r")
-	fmt.Println(re.ReplaceAllString("http://rahulprasad.com/yo#baby", "-"))
-}
+//func test() {
+//	re := regexp.MustCompile("r")
+//	fmt.Println(re.ReplaceAllString("http://rahulprasad.com/yo#baby", "-"))
+//}
 
 func Process(path string, ch_exit chan bool) {
-	test()
+	//test()
 
 	// Setup system
 	configuration := Setup(path)
@@ -76,7 +76,7 @@ func Process(path string, ch_exit chan bool) {
 	err = page_processor(node.Id, node.Link, configuration, docs_channel)
 	if err != nil { log.Fatal(err.Error())}
 
-	// Start 10 workers for processing pages
+	// Start workers for processing pages
 	num_workers := configuration.WebCount
 	for i:=0; i<num_workers;i++ {
 		go process_page(configuration, docs_channel, chWorkerCount, killWorker)
