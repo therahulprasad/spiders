@@ -28,5 +28,3 @@ _For example if you want to keep only english content and remove all other chara
 
 ##### Change Log
 _v0.1 Initial Release_
-
-### Dev Documentation
