@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"github.com/go-playground/log"
 	"errors"
+	"path"
 )
 
 func link_processor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool) {
@@ -34,10 +35,13 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 	doc.Find("a").Each(func (i int, s *goquery.Selection) {
 		link, ok := s.Attr("href")
 		if ok {
-			finalLink, ok, err := validate_url(link, configuration)
+			finalLink, ok, err := validate_url(link, configuration, doc.Url)
 			if err != nil { fmt.Println(err.Error()) }
 
 			if ok {
+				if configuration.DisplayMatchedUrl {
+					fmt.Println("Valid Link found: " + finalLink)
+				}
 				finalLinks = append(finalLinks, finalLink)
 			}
 		}
@@ -49,21 +53,25 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 	}
 }
 
-func validate_url(link string, configuration config.Configuration) (string, bool, error) {
+func validate_url(link string, configuration config.Configuration, currentUrl *url.URL) (string, bool, error) {
 	if configuration.Debug {
 		fmt.Println("validate_url")
 	}
+
+	var err error
 
 	// If link is empty do nothing
 	if link == "" { return "", false, errors.New("Empty link") }
 
 	// Find out domain of the url
-	rootUrl, err := url.Parse(configuration.RootURL)
-	if err != nil {return "", false, err}
+	//rootUrl, err := url.Parse(configuration.RootURL)
+	//if err != nil {return "", false, err}
 
 	domainUrl := ""
-	domainUrl += rootUrl.Scheme + "://"
-	domainUrl += rootUrl.Host
+	domainUrl += currentUrl.Scheme + "://"
+	domainUrl += currentUrl.Host
+
+	currentPath := currentUrl.Path
 
 	// Check if link is relative or absolute
 	isAbsoluteUrl := false
@@ -74,11 +82,8 @@ func validate_url(link string, configuration config.Configuration) (string, bool
 	// Build final link to be added to database
 	finalLink := link
 	if !isAbsoluteUrl {
-		if link[0:1] == "/" {
-			finalLink = domainUrl + link
-		} else {
-			finalLink = domainUrl + "/" + link
-		}
+		finalPath := path.Join(path.Dir(currentPath), link)
+		finalLink = domainUrl + finalPath
 	}
 
 	// Check if URL matches configuration regex

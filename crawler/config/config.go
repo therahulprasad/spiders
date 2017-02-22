@@ -16,6 +16,9 @@ func Load(path string) error {
 		return err
 	}
 
+	// Set default values
+	config.DisplayMatchedUrl = false
+
 	// Decode json
 	decoder := json.NewDecoder(fp)
 	err = decoder.Decode(&config)

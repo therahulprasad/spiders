@@ -9,17 +9,14 @@ import (
 	"io/ioutil"
 	"strconv"
 	"log"
-	"os/signal"
-	"syscall"
 	"time"
-	"regexp"
 )
 
 func terminate(killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
 	// Kill link processor
 	killLinkProcessor<- true
 
-	// Wait for goroutes to be killed
+	// Wait for goroutines to be killed
 	fmt.Println("Waiting for all workers to die")
 	<-killLinkProcessorAck
 
@@ -27,7 +24,7 @@ func terminate(killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
 	ch_exit<- true
 }
 
-func handle_sig_term(chQuit chan os.Signal, killLinkProcessor, killLinkProcessorAck, ch_exit chan bool, killAllWorker chan int) {
+func handle_sig_kill(chQuit, killLinkProcessor, killLinkProcessorAck, ch_exit chan bool, killAllWorker chan int) {
 	<-chQuit
 	fmt.Println("Sigterm received, Killing all workers")
 	terminate(killLinkProcessor, killLinkProcessorAck, ch_exit)
@@ -38,7 +35,7 @@ func handle_sig_term(chQuit chan os.Signal, killLinkProcessor, killLinkProcessor
 //	fmt.Println(re.ReplaceAllString("http://rahulprasad.com/yo#baby", "-"))
 //}
 
-func Process(path string, ch_exit chan bool) {
+func Process(path string, chWaitForExit, ch_kill chan bool) {
 	//test()
 
 	// Setup system
@@ -57,9 +54,7 @@ func Process(path string, ch_exit chan bool) {
 	chWorkerCount := make(chan int)
 
 	// Handle Ctrl + C
-	chQuit := make(chan os.Signal, 2)
-	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
-	go handle_sig_term(chQuit, killLinkProcessor, killLinkProcessorAck, ch_exit, killAllWorker)
+	go handle_sig_kill(ch_kill, killLinkProcessor, killLinkProcessorAck, chWaitForExit, killAllWorker)
 
 	// TODO: In case of resume operation, skip this
 	_, err := db.Push(configuration.RootURL, 0)
@@ -82,7 +77,7 @@ func Process(path string, ch_exit chan bool) {
 		go process_page(configuration, docs_channel, chWorkerCount, killWorker)
 	}
 
-	go worker_manager(chWorkerCount, killWorker, killAllWorker, num_workers, killLinkProcessor, killLinkProcessorAck, ch_exit)
+	go worker_manager(chWorkerCount, killWorker, killAllWorker, num_workers, killLinkProcessor, killLinkProcessorAck, chWaitForExit)
 	// Pop new url from queue
 	// Send the url to workers
 	// Check if exit condition is reached
@@ -165,7 +160,6 @@ func page_processor(id int64, url string, configuration config.Configuration, ch
 	} else {
 		db.Update(id, 0, db.ValidationFailed)
 	}
-
 	// Process all links in the doc
 	ch_link_processor <- doc
 	//ls_url(doc, configuration)

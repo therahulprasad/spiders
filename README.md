@@ -21,10 +21,5 @@ _For example if you want to keep only english content and remove all other chara
 
 ### Customization
 
-### Development
-
-##### Todo
-1. Configurable Regex based page Sanitizer
-
 ##### Change Log
 _v0.1 Initial Release_

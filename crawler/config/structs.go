@@ -2,6 +2,7 @@ package config
 
 type Configuration struct {
 	Debug bool `json:"debug"`
+	DisplayMatchedUrl bool `json:"display_matched_url"`
 	Project string `json:"project"`
 	WebCount int `json:"web_count"`
 	RootURL string `json:"root_url"`
