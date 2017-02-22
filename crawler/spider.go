@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"log"
 	"time"
+	"crypto/md5"
 )
 
 func terminate(killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
@@ -158,7 +159,7 @@ func page_processor(id int64, url string, configuration config.Configuration, ch
 		// Article found copy text
 		scrap(id, doc, configuration)
 	} else {
-		db.Update(id, 0, db.ValidationFailed)
+		db.Update(id, 0, db.ValidationFailed, "")
 	}
 	// Process all links in the doc
 	ch_link_processor <- doc
@@ -174,14 +175,18 @@ func scrap(id int64, doc *goquery.Document, configuration config.Configuration) 
 	}
 
 	var count int64 = 0
+	strAll := ""
 	selections := doc.Find(configuration.ContentSelector)
 	selections.Each(func(i int, s *goquery.Selection) {
 		count++
 		str := s.Text()
+		strAll = strAll + str
 		ioutil.WriteFile(configuration.DataDir() + "/" + strconv.FormatInt(id, 10) + "_" + strconv.FormatInt(count, 10) + ".txt", []byte(str), os.FileMode(0777))
 	})
 
+	md5hash := md5.Sum([]byte(strAll))
+
 	// Update database that the link is scrapped
-	err := db.Update(id, count, db.Success)
+	err := db.Update(id, count, db.Success, fmt.Sprintf("%x", md5hash))
 	if err != nil {log.Println(err.Error())}
 }

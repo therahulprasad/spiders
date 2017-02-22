@@ -10,6 +10,7 @@ type Node struct {
 	CrawledOn time.Time
 	ParentId int
 	Matches int64
+	MD5 string
 }
 
 const (

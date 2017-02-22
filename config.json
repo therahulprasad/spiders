@@ -1,14 +1,15 @@
 {
   "debug": false,
   "display_matched_url": true,
-  "project": "http://www.5abi.com",
-  "web_count": 30,
-  "root_url": "http://www.5abi.com/2017-pubs/",
-  "directory": "/home/rahul/Development/bobble/research/Language/Scrapping/punjabi/5abi.com",
-  "link_validator": "^http:\\\/\\\/www\\.5abi\\.com\\\/\\d+-pubs\\\/.*",
+  "project": "rahulprasad.com",
+  "web_count": 10,
+  "root_url": "https://www.sampada.net/ಮಲೆನಾಡಿನ-ಮಾಳ-ಕಾವಲು-ಕೊನೆಗೆ-ಕಂಬಳ-ಭಾಗ-1/47442",
+  "root_url_test": "https://www.sampada.net/ಮಲೆನಾಡಿನ-ಮಾಳ-ಕಾವಲು-ಕೊನೆಗೆ-ಕಂಬಳ-ಭಾಗ-1/47442",
+  "directory": "/home/rahul/Development/Go/src/github.com/therahulprasad/spiderman/rahul",
+  "link_validator": "^https:\\\/\\\/www\\.sampada\\.net\\\/.*",
   "link_sanitizer": "(#.*)",
   "link_sanitizer_replacement": "",
-  "content_selector": "body table[background='../5abi-Upload/dejine-idx/gray-light1-bg.jpg'] tr:nth-child(3) table tr:nth-child(1)",
+  "content_selector": ".mainWarp .mainInner .mainContent .content-region .node--article--full .node__content .field--name-body",
   "content_sanitizer": "",
-  "page_validator": "body table[background='../5abi-Upload/dejine-idx/gray-light1-bg.jpg'] tr:nth-child(3) table tr:nth-child(1)"
+  "page_validator": "body.node-type-article"
 }

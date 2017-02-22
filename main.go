@@ -7,11 +7,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"crypto/md5"
 )
 
-const VERSION = "0.1"
+const VERSION = "0.2"
 const MAJOR_CHANGE = "Initial Release"
 func main() {
+	//test()
+
 	verFlag := flag.Bool("version", false, "To get current versiion")
 	configPathFlag := flag.String("config", "config.json", "Path of json config file")
 	flag.Parse()
@@ -48,3 +51,15 @@ func main() {
 	<-ch_exit_wait
 }
 
+
+func test() {
+	sum := md5.Sum([]byte("hello"))
+	sumStr := string(sum[:])
+	sumStr2 := fmt.Sprintf("%x", sum)
+
+	fmt.Printf("%x", sum)
+	fmt.Println(sumStr)
+	fmt.Println(sumStr2)
+
+	os.Exit(0)
+}

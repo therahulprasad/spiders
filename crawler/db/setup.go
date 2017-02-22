@@ -49,7 +49,8 @@ func create_tables() {
 			    status     STRING   DEFAULT waiting,
 			    crawled_on DATETIME,
 			    parent_id  INTEGER,
-			    matches    INTEGER
+			    matches    INTEGER,
+			    md5	       STRING
 			);`
 		_, err = db.Exec(sql_queue_table)
 		if err != nil {

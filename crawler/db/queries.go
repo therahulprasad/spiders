@@ -88,9 +88,9 @@ func Pop() (Node, error) {
 
 		layout := "2006-01-02T15:04:05Z"
 		for rows.Next() {
-			var crawledOn, addedOn sql.NullString
+			var crawledOn, addedOn, md5hash sql.NullString
 			var matches sql.NullInt64
-			err := rows.Scan(&node.Id, &node.Link, &addedOn, &node.Status, &crawledOn, &node.ParentId, &matches)
+			err := rows.Scan(&node.Id, &node.Link, &addedOn, &node.Status, &crawledOn, &node.ParentId, &matches, &md5hash)
 			if err != nil {return Node {}, err}
 
 			if crawledOn.Valid {
@@ -104,6 +104,9 @@ func Pop() (Node, error) {
 			if matches.Valid {
 				node.Matches = matches.Int64
 			}
+			if md5hash.Valid {
+				node.MD5 = md5hash.String
+			}
 		}
 
 		return node, nil
@@ -116,17 +119,17 @@ func Pop() (Node, error) {
 
 
 // Update status of row to success or failure
-func Update(pk, match_count int64, status string) (error) {
+func Update(pk, match_count int64, status, md5hash string) (error) {
 	// If status is not success or failure then return error
 	if !(status == Success || status == ValidationFailed) {
 		return errors.New("Invalid input")
 	}
 
-	sql_update := "UPDATE queue SET status=?, matches = ? WHERE id = ?"
+	sql_update := "UPDATE queue SET status=?, matches = ?, md5 = ? WHERE id = ?"
 	stmt, err := db.Prepare(sql_update)
 	if err != nil {return err}
 
-	_, err = stmt.Exec(status, match_count, pk)
+	_, err = stmt.Exec(status, match_count, md5hash, pk)
 	if err != nil {return err}
 
 	return nil
