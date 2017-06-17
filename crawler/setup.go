@@ -9,7 +9,7 @@ import (
 
 
 // Implements basic system setup
-func Setup(config_path string) config.Configuration {
+func Setup(config_path string, resume bool) config.Configuration {
 	// Load config file
 	err := config.Load(config_path)
 	if err != nil {
@@ -36,7 +36,7 @@ func Setup(config_path string) config.Configuration {
 
 	// If directory already exists die
 	// TODO: If resume flag is set then don't check this
-	if err == nil {
+	if !resume && err == nil {
 		log.Fatal("Directory already exists: " + configuration.Directory)
 	}
 
@@ -44,7 +44,7 @@ func Setup(config_path string) config.Configuration {
 	// Create "data" folder in the directory
 	// TODO: If resume flag is set then data directory must already exists
 	err = os.Mkdir(configuration.DataDir(), os.FileMode(0777))
-	if err != nil {
+	if !resume && err != nil {
 		log.Fatal("Could not create data directory")
 	}
 
@@ -54,7 +54,7 @@ func Setup(config_path string) config.Configuration {
 
 	// Initiate database in the directory
 	// TODO: If resume flag is set then Database must already be present
-	db.Setup(configuration)
+	db.Setup(configuration, resume)
 
 	return configuration
 }

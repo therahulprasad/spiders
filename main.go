@@ -7,16 +7,16 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"crypto/md5"
 )
 
 const VERSION = "0.2"
 const MAJOR_CHANGE = "Initial Release"
-func main() {
-	//test()
+const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
+func main() {
 	verFlag := flag.Bool("version", false, "To get current versiion")
-	configPathFlag := flag.String("config", "config.json", "Path of json config file")
+	configPathFlag := flag.String("config", DEFAULT_CONFIG_FILENAME, "Path of json config file")
+	resumeFlag := flag.Bool("resume", false, "Resume incomplete project")
 	flag.Parse()
 	if *verFlag == true {
 		fmt.Println("Version: " + VERSION)
@@ -25,6 +25,7 @@ func main() {
 	}
 
 	config_path := *configPathFlag
+	resume := *resumeFlag
 
 	// Channel which waits for Crawler to end
 	ch_exit_wait := make(chan bool)
@@ -45,21 +46,8 @@ func main() {
 	}(chQuit, chKill)
 
 	// Start the crawler
-	crawler.Process(config_path, ch_exit_wait, chKill)
+	crawler.Initialize(config_path, ch_exit_wait, chKill, resume)
 
 	// Wait for Crawler to end
 	<-ch_exit_wait
-}
-
-
-func test() {
-	sum := md5.Sum([]byte("hello"))
-	sumStr := string(sum[:])
-	sumStr2 := fmt.Sprintf("%x", sum)
-
-	fmt.Printf("%x", sum)
-	fmt.Println(sumStr)
-	fmt.Println(sumStr2)
-
-	os.Exit(0)
 }

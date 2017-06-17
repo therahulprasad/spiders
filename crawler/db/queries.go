@@ -73,16 +73,24 @@ func Pop() (Node, error) {
 				    SELECT id from queue WHERE status LIKE "waiting" ORDER BY id ASC LIMIT 1
 				)`
 		stmt, err := db.Prepare(sql_update)
-		if err != nil {return Node {}, err}
+		defer stmt.Close();
+
+		if err != nil {
+			return Node {}, err
+		}
 
 		_, err = stmt.Exec(uuid)
-		if err != nil {return Node {}, err}
+
+		if err != nil {
+			return Node {}, err
+		}
 
 		// Pop the row
-
 		sql_select := "SELECT * FROM queue WHERE status LIKE ?"
 		rows, err := db.Query(sql_select, uuid)
-		if err != nil {return Node {}, err}
+		if err != nil {
+			return Node {}, err
+		}
 
 		node := Node{}
 

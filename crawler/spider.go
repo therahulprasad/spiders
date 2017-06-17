@@ -14,11 +14,12 @@ import (
 )
 
 func terminate(killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
+	fmt.Println("Waiting for all workers to die")
+
 	// Kill link processor
 	killLinkProcessor<- true
 
 	// Wait for goroutines to be killed
-	fmt.Println("Waiting for all workers to die")
 	<-killLinkProcessorAck
 
 	// Exit
@@ -31,16 +32,9 @@ func handle_sig_kill(chQuit, killLinkProcessor, killLinkProcessorAck, ch_exit ch
 	terminate(killLinkProcessor, killLinkProcessorAck, ch_exit)
 }
 
-//func test() {
-//	re := regexp.MustCompile("r")
-//	fmt.Println(re.ReplaceAllString("http://rahulprasad.com/yo#baby", "-"))
-//}
-
-func Process(path string, chWaitForExit, ch_kill chan bool) {
-	//test()
-
+func Initialize(path string, chWaitForExit, ch_kill chan bool, resume bool) {
 	// Setup system
-	configuration := Setup(path)
+	configuration := Setup(path, resume)
 
 	// Kill switch for link processor
 	killLinkProcessor := make(chan bool)
@@ -57,9 +51,10 @@ func Process(path string, chWaitForExit, ch_kill chan bool) {
 	// Handle Ctrl + C
 	go handle_sig_kill(ch_kill, killLinkProcessor, killLinkProcessorAck, chWaitForExit, killAllWorker)
 
-	// TODO: In case of resume operation, skip this
-	_, err := db.Push(configuration.RootURL, 0)
-	if err != nil { log.Fatal(err.Error())}
+	if resume == false {
+		_, err := db.Push(configuration.RootURL, 0)
+		if err != nil { log.Fatal(err.Error())}
+	}
 
 	// Start 1 link processor goroutine
 	docs_channel := make(chan *goquery.Document)
@@ -75,13 +70,10 @@ func Process(path string, chWaitForExit, ch_kill chan bool) {
 	// Start workers for processing pages
 	num_workers := configuration.WebCount
 	for i:=0; i<num_workers;i++ {
-		go process_page(configuration, docs_channel, chWorkerCount, killWorker)
+		go worker_process_page(configuration, docs_channel, chWorkerCount, killWorker)
 	}
 
 	go worker_manager(chWorkerCount, killWorker, killAllWorker, num_workers, killLinkProcessor, killLinkProcessorAck, chWaitForExit)
-	// Pop new url from queue
-	// Send the url to workers
-	// Check if exit condition is reached
 }
 
 func worker_manager(chWorkerCount, killWorker, killAllWorker chan int, num_workers int, killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
@@ -113,7 +105,7 @@ func worker_manager(chWorkerCount, killWorker, killAllWorker chan int, num_worke
 	}
 }
 
-func process_page(configuration config.Configuration, ch_link_processor chan *goquery.Document, chWorkerCount, killWorker chan int) {
+func worker_process_page(configuration config.Configuration, ch_link_processor chan *goquery.Document, chWorkerCount, killWorker chan int) {
 	emptyCount := 0
 	for {
 		select {

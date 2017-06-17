@@ -10,12 +10,14 @@ import (
 var db *sql.DB = nil
 
 // Database related functions
-func Setup(configuration config.Configuration) {
-	create_db(configuration)
-	create_tables()
+func Setup(configuration config.Configuration, resume bool) {
+	connect_db(configuration)
+	if !resume {
+		create_tables()
+	}
 }
 
-func create_db(configuration config.Configuration) {
+func connect_db(configuration config.Configuration) {
 	var err error
 
 	// Create new SQLite database

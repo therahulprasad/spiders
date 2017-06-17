@@ -2,8 +2,8 @@ package config
 
 import (
 	"errors"
-	"os"
-	"encoding/json"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 var config Configuration
@@ -11,7 +11,7 @@ var config Configuration
 // Loads configuration from json file
 func Load(path string) error {
 	// Open file
-	fp, err := os.Open(path)
+	configBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}
@@ -19,9 +19,8 @@ func Load(path string) error {
 	// Set default values
 	config.DisplayMatchedUrl = false
 
-	// Decode json
-	decoder := json.NewDecoder(fp)
-	err = decoder.Decode(&config)
+	// Decode YAML
+	yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		return err
 	}
