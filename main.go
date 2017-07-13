@@ -9,8 +9,8 @@ import (
 	"syscall"
 )
 
-const VERSION = "0.2"
-const MAJOR_CHANGE = "Initial Release"
+const VERSION = "0.3"
+const MAJOR_CHANGE = "Batch Processing"
 const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
 func main() {

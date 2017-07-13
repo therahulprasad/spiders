@@ -22,4 +22,6 @@ _For example if you want to keep only english content and remove all other chara
 ### Customization
 
 ##### Change Log
-_v0.1 Initial Release_
+_v0.1 Initial Release_  
+_v0.2_  
+_v0.3 Batch Processing_
