@@ -7,14 +7,31 @@ import (
 	"log"
 )
 
-var db *sql.DB = nil
-
 // Database related functions
 func Setup(configuration config.Configuration, resume bool) {
 	connect_db(configuration)
 	if !resume {
 		create_tables()
 	}
+	localPushStmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
+	if err != nil { log.Fatal("Error while preparing database statement - Push")}
+	pushStmt = localPushStmt
+
+	localPushMultiStmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
+	if err != nil { log.Fatal("Error while preparing database statement - PushMulti") }
+	pushMultiStmt = localPushMultiStmt
+
+	sql_pop := `UPDATE queue SET status=? WHERE id IN (
+				    SELECT id from queue WHERE status LIKE "waiting" ORDER BY id ASC LIMIT 1
+				)`
+	localPopStmt, err := db.Prepare(sql_pop)
+	if err != nil { log.Fatal("Error while preparing database statement - Pop") }
+	popStmt = localPopStmt
+
+	sql_update := "UPDATE queue SET status=?, matches = ?, md5 = ? WHERE id = ?"
+	localUpdateStmt, err := db.Prepare(sql_update)
+	if err != nil { log.Fatal("Error while preparing database statement - Update") }
+	updateStmt = localUpdateStmt
 }
 
 func connect_db(configuration config.Configuration) {
@@ -62,3 +79,4 @@ func create_tables() {
 		log.Fatal("Database not initialized")
 	}
 }
+

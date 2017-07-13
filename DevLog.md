@@ -1,12 +1,16 @@
 # Development Log
 
 #### Todo 
-1. Configurable Regex based page Sanitizer
-5. Serial mode (To download pages with numeric ids)
-6. step by step config creator 
-7. __Validate URL > mailto: and other protocols__
-8. Handle database locked error
-9.
+- Serial mode (To download pages with numeric ids)
+- On resume, load configuration from database
+- Configurable Regex based page Sanitizer
+- step by step config creator
+- __Validate URL > mailto: and other protocols__
+- Handle database locked error
+- Better way to manage database
+- Make SQLITE faster
+    - Pop multiple items per worker
+    - Insert multiple links at once
 
 ### Done
 - Maintain md5 hash of pages to check redundancy
@@ -14,4 +18,3 @@
 - moved Ctrl + C handler to main.go from spider.go
 - Find better alternative for storing config (Using Yaml now)
 - Resume support
-

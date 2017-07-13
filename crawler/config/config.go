@@ -4,6 +4,7 @@ import (
 	"errors"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"log"
 )
 
 var config Configuration
@@ -26,6 +27,10 @@ func Load(path string) error {
 	}
 
 	// Validate Configuration
+	if !(config.ProjectType == PROJECT_TYPE_CRAWL || config.ProjectType == PROJECT_TYPE_BACTH)  {
+		log.Fatal("Config:project_type - Only " + PROJECT_TYPE_BACTH + " & " + PROJECT_TYPE_CRAWL + " is supported.")
+	}
+
 	// There is nothing to validate now :(
 	return nil
 }

@@ -14,6 +14,7 @@ const MAJOR_CHANGE = "Initial Release"
 const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
 func main() {
+	fmt.Println("Started")
 	verFlag := flag.Bool("version", false, "To get current versiion")
 	configPathFlag := flag.String("config", DEFAULT_CONFIG_FILENAME, "Path of json config file")
 	resumeFlag := flag.Bool("resume", false, "Resume incomplete project")
@@ -50,4 +51,6 @@ func main() {
 
 	// Wait for Crawler to end
 	<-ch_exit_wait
+
+	fmt.Println("Bye")
 }

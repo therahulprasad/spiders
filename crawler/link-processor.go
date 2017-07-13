@@ -12,6 +12,12 @@ import (
 	"path"
 )
 
+// TODO: Find a work around
+// Fake function to process kill signal for quit handler
+func fake_link_processor(kill, killLinkProcessorAck chan bool){
+	<- kill
+	killLinkProcessorAck <- true
+}
 func link_processor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool) {
 	// TODO: How do I persist all the details before killing
 	for {

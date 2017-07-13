@@ -11,9 +11,10 @@ import (
 	"log"
 	"time"
 	"crypto/md5"
+	"math/rand"
 )
 
-func terminate(killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
+func terminate_link_processor(killLinkProcessor, killLinkProcessorAck, chWaitForExit chan bool) {
 	fmt.Println("Waiting for all workers to die")
 
 	// Kill link processor
@@ -23,13 +24,14 @@ func terminate(killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
 	<-killLinkProcessorAck
 
 	// Exit
-	ch_exit<- true
+	chWaitForExit <- true
 }
 
 func handle_sig_kill(chQuit, killLinkProcessor, killLinkProcessorAck, ch_exit chan bool, killAllWorker chan int) {
 	<-chQuit
+
 	fmt.Println("Sigterm received, Killing all workers")
-	terminate(killLinkProcessor, killLinkProcessorAck, ch_exit)
+	killAllWorker <- 1 // This will kill all workers and then terminate link processor
 }
 
 func Initialize(path string, chWaitForExit, ch_kill chan bool, resume bool) {
@@ -51,32 +53,46 @@ func Initialize(path string, chWaitForExit, ch_kill chan bool, resume bool) {
 	// Handle Ctrl + C
 	go handle_sig_kill(ch_kill, killLinkProcessor, killLinkProcessorAck, chWaitForExit, killAllWorker)
 
-	if resume == false {
-		_, err := db.Push(configuration.RootURL, 0)
-		if err != nil { log.Fatal(err.Error())}
-	}
-
-	// Start 1 link processor goroutine
+	// Channel for passing Documents
 	docs_channel := make(chan *goquery.Document)
-	go link_processor(docs_channel, configuration, killLinkProcessor, killLinkProcessorAck)
 
-	// Process first page
-	node, err := db.Pop()
-	if err != nil { log.Fatal(err.Error())}
+	// if project_type is crawl then push root URL otherwise just ignore it Link_processor will take care of batches
+	if configuration.ProjectType == config.PROJECT_TYPE_CRAWL {
+		// First element is required only when starting a new project so ignore when a project is being resumed
+		if resume == false {
+			_, err := db.Push(configuration.RootURL, 0)
+			if err != nil { log.Fatal(err.Error())}
+		}
 
-	err = page_processor(node.Id, node.Link, configuration, docs_channel)
-	if err != nil { log.Fatal(err.Error())}
+		// Start 1 link processor goroutine
+		go link_processor(docs_channel, configuration, killLinkProcessor, killLinkProcessorAck)
+	} else if configuration.ProjectType == config.PROJECT_TYPE_BACTH {
+		if resume != true {
+			push_all_batch_links(configuration)
+		}
+		go fake_link_processor(killLinkProcessor, killLinkProcessorAck)
+	}
 
 	// Start workers for processing pages
 	num_workers := configuration.WebCount
 	for i:=0; i<num_workers;i++ {
 		go worker_process_page(configuration, docs_channel, chWorkerCount, killWorker)
 	}
-
 	go worker_manager(chWorkerCount, killWorker, killAllWorker, num_workers, killLinkProcessor, killLinkProcessorAck, chWaitForExit)
+	go process_first_page(configuration, docs_channel)
 }
 
-func worker_manager(chWorkerCount, killWorker, killAllWorker chan int, num_workers int, killLinkProcessor, killLinkProcessorAck, ch_exit chan bool) {
+func process_first_page(configuration config.Configuration, docs_channel chan *goquery.Document) {
+	// Process first page
+	node, err := db.Pop()
+	if err != nil { log.Fatal(err.Error())}
+
+
+	err = page_processor(node.Id, node.Link, configuration, docs_channel)
+	if err != nil { log.Fatal(err.Error())}
+}
+
+func worker_manager(chWorkerCount, killWorker, killAllWorker chan int, num_workers int, killLinkProcessor, killLinkProcessorAck, chWaitForExit chan bool) {
 	for {
 		select {
 		case <-chWorkerCount:
@@ -86,7 +102,7 @@ func worker_manager(chWorkerCount, killWorker, killAllWorker chan int, num_worke
 
 			// If all workers are dead, then terminate program
 			if num_workers == 0 {
-				terminate(killLinkProcessor, killLinkProcessorAck, ch_exit)
+				terminate_link_processor(killLinkProcessor, killLinkProcessorAck, chWaitForExit)
 			}
 		case <-killAllWorker:
 			// Request to kill all Workers received
@@ -100,39 +116,36 @@ func worker_manager(chWorkerCount, killWorker, killAllWorker chan int, num_worke
 			}
 
 			// When all workers are killed, Terminate
-			terminate(killLinkProcessor, killLinkProcessorAck, ch_exit)
+			terminate_link_processor(killLinkProcessor, killLinkProcessorAck, chWaitForExit)
 		}
 	}
 }
 
+func random(min, max int) int {
+	return rand.Intn(max - min) + min
+}
 func worker_process_page(configuration config.Configuration, ch_link_processor chan *goquery.Document, chWorkerCount, killWorker chan int) {
-	emptyCount := 0
 	for {
 		select {
 		case <-killWorker:
 			return
 		default:
+			// Wait for random time
+			time.Sleep(time.Duration(random(1, 5000)) * time.Millisecond)
+
 			node, err := db.Pop()
 			if err != nil {
 				log.Println("Error while db.Pop @ process_page: " + err.Error())
-				chWorkerCount<- 1
-				return
 			}
 
 			// if empty value is returned. Wait for 10 seconds and try again
 			if node == (db.Node{}) {
 				fmt.Println("Empty Node :(")
-				emptyCount++
-				time.Sleep(time.Duration(10) * time.Second)
-			} else {
-				emptyCount = 0
-				page_processor(node.Id, node.Link, configuration, ch_link_processor)
-			}
 
-			// If value is empty for 10 consecutive period then return
-			if emptyCount == 10 {
-				chWorkerCount<- 1
-				return
+				// Wait for random time
+				time.Sleep(time.Duration(random(1, 5000)) * time.Millisecond)
+			} else {
+				page_processor(node.Id, node.Link, configuration, ch_link_processor)
 			}
 		}
 	}
@@ -144,8 +157,13 @@ func page_processor(id int64, url string, configuration config.Configuration, ch
 	doc, err := goquery.NewDocument(url)
 	if err != nil {return err}
 
+	pageValidator := configuration.PageValidator
+	if (configuration.PageValidator) == "" {
+		pageValidator = configuration.ContentSelector
+	}
+
 	// Check if page contains article
-	article:=doc.Find(configuration.PageValidator)
+	article:=doc.Find(pageValidator)
 
 	if article.Length() != 0 {
 		// Article found copy text

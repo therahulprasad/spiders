@@ -14,14 +14,20 @@ import (
 // Returns error in case of failure
 // Duplicate links are automatically ignored
 func Push(url string, parent_id int) (int64, error) {
+	lockDbAccess()
+	defer ackDbWorkDone()
+	return push(url, parent_id)
+}
+
+func push(url string, parent_id int) (int64, error) {
 	var id int64 = -1
 	if db != nil {
-		stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
-		if err != nil {
-			return -1, err
-		}
+		//stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
+		//if err != nil {
+		//	return -1, err
+		//}
 
-		res, err := stmt.Exec(url, "2017-01-31 10:13", "waiting", parent_id)
+		res, err := pushStmt.Exec(url, "2017-01-31 10:13", "waiting", parent_id)
 		if err != nil {
 			return -1, err
 		}
@@ -38,16 +44,22 @@ func Push(url string, parent_id int) (int64, error) {
 }
 
 func PushMulti(urls []string, parent_id int) ([]int64, error) {
+	lockDbAccess()
+	defer ackDbWorkDone()
+	return pushMulti(urls, parent_id)
+}
+
+func pushMulti(urls []string, parent_id int) ([]int64, error) {
 	var ids []int64
 	if db != nil {
-		stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
-		if err != nil { return ids, err }
+		//stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
+		//if err != nil { return ids, err }
 
 		tx, err := db.Begin()
 		if err != nil { return ids, err }
 
 		for _, url:= range urls {
-			res, err := tx.Stmt(stmt).Exec(url, "2017-01-31 10:13", "waiting", parent_id)
+			res, err := tx.Stmt(pushMultiStmt).Exec(url, "2017-01-31 10:13", "waiting", parent_id)
 			if err != nil { return ids, err }
 
 			id, err := res.LastInsertId()
@@ -65,21 +77,28 @@ func PushMulti(urls []string, parent_id int) ([]int64, error) {
 
 // Returns a node to be crawled, returns error in case fo failure
 func Pop() (Node, error) {
+	lockDbAccess()
+	defer ackDbWorkDone()
+	return pop()
+}
+
+func pop() (Node, error){
 	if db != nil {
 		// Update the row which will be popped
 
 		uuid := pseudo_uuid()
-		sql_update := `UPDATE queue SET status=? WHERE id IN (
-				    SELECT id from queue WHERE status LIKE "waiting" ORDER BY id ASC LIMIT 1
-				)`
-		stmt, err := db.Prepare(sql_update)
-		defer stmt.Close();
+		//sql_update := `UPDATE queue SET status=? WHERE id IN (
+		//		    SELECT id from queue WHERE status LIKE "waiting" ORDER BY id ASC LIMIT 1
+		//		)`
+		//stmt, err := db.Prepare(sql_update)
+		//
+		//if err != nil {
+		//	return Node {}, err
+		//} else {
+		//	defer stmt.Close();
+		//}
 
-		if err != nil {
-			return Node {}, err
-		}
-
-		_, err = stmt.Exec(uuid)
+		_, err := popStmt.Exec(uuid)
 
 		if err != nil {
 			return Node {}, err
@@ -125,19 +144,24 @@ func Pop() (Node, error) {
 	return Node {}, nil
 }
 
-
 // Update status of row to success or failure
 func Update(pk, match_count int64, status, md5hash string) (error) {
+	lockDbAccess()
+	defer ackDbWorkDone()
+	return update(pk, match_count, status, md5hash)
+}
+
+func update(pk, match_count int64, status, md5hash string) (error) {
 	// If status is not success or failure then return error
 	if !(status == Success || status == ValidationFailed) {
 		return errors.New("Invalid input")
 	}
 
-	sql_update := "UPDATE queue SET status=?, matches = ?, md5 = ? WHERE id = ?"
-	stmt, err := db.Prepare(sql_update)
-	if err != nil {return err}
+	//sql_update := "UPDATE queue SET status=?, matches = ?, md5 = ? WHERE id = ?"
+	//stmt, err := db.Prepare(sql_update)
+	//if err != nil {return err}
 
-	_, err = stmt.Exec(status, match_count, md5hash, pk)
+	_, err := updateStmt.Exec(status, match_count, md5hash, pk)
 	if err != nil {return err}
 
 	return nil
