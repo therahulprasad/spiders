@@ -9,6 +9,11 @@
 - Make SQLITE faster
     - Pop multiple items per worker
     - Insert multiple links at once
+- Put some example config files
+- UI
+- Sleep time in configuration
+- Proxy and VPN configurations
+- Think of a way to make the spiders roam freely and collect specified character-set based data from around the internet
 
 ### Done
 - Maintain md5 hash of pages to check redundancy

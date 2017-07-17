@@ -4,20 +4,19 @@ debug: false
 display_matched_url: false
 
 ## Name of the project
-project: "http://aajtak.intoday.in/videos/aapki-property.html"
+project: "Crawler Project"
 # Type of project (crawl / batch)
 project_type: "crawl"
 # Directory to store downloaded content
-directory: "aajtak.intoday.in"
+directory: "Project"
 # Number of workers
 web_count: 100
 
 ### Crawler settings
 # First URL to crawl
-root_url: "http://aajtak.intoday.in/story/asus-zenfone-ar-launched-in-india-1-940893.html"
+root_url: "http://example.com/"
 # Regex to validate if link has to be crawled
-#link_validator: "^http:\\/\\/aajtak.intoday.in\\/.*"
-link_validator: "^http://aajtak.intoday.in/.*"
+link_validator: "^http://example.com/.*"
 # Regex to preprocess the link before queuing for example (#.*) will select all characters after # in the url
 link_sanitizer: "(#.*)"
 # Replacement for selected string from sanitizer

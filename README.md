@@ -1,5 +1,5 @@
 # spiders
-An easily configurable and easy to use web crawler. 
+An easy to use web crawler for collecting text. 
 
 ### Features
 1. Indefinitely crawls till end condition is met
@@ -12,11 +12,19 @@ _You can decide which URL should be added to Queue based on custom Regex_
 _You can decide which part of page to be scrapped based on CSS selector_
 7. Configurable Regex based URL Sanitizer  
 _For example you can remove everything after #_
-8. Configurable Regex based page Sanitizer  
-_For example if you want to keep only english content and remove all other characters_
+8. Batch URL processing  
 
 ### Installation
-`go install github.com/therahulprasad/spiders`
+If you do not have Go installed (Recommended)  
+- Download latest binaries from [release page](https://github.com/therahulprasad/spiders/releases)  
+- Copy binaries to executable PATH or run directly from terminal using `./spiders`  
+
+If you have Go installed  
+`go install github.com/therahulprasad/spiders`  
+and run `spiders` from terminal  
+
+If you are a windows users  
+- Upgrade to Linux  
 
 ### Usage
 For help use
@@ -33,6 +41,9 @@ Resume previous project by running
 
 ### Customization
 Use self explanatory `config.yaml` to configure the project.
+
+### What next?  
+Create a UI
 
 ##### Change Log
 _v0.1 Initial Release_  
