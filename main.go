@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/therahulprasad/spiderman/crawler"
+	"github.com/therahulprasad/spiders/crawler"
 	"flag"
 	"fmt"
 	"os"

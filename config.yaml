@@ -16,7 +16,8 @@ web_count: 100
 # First URL to crawl
 root_url: "http://aajtak.intoday.in/story/asus-zenfone-ar-launched-in-india-1-940893.html"
 # Regex to validate if link has to be crawled
-link_validator: "^http:\\/\\/aajtak.intoday.in\\/.*"
+#link_validator: "^http:\\/\\/aajtak.intoday.in\\/.*"
+link_validator: "^http://aajtak.intoday.in/.*"
 # Regex to preprocess the link before queuing for example (#.*) will select all characters after # in the url
 link_sanitizer: "(#.*)"
 # Replacement for selected string from sanitizer

@@ -2,8 +2,8 @@ package crawler
 
 import (
 	"os"
-	"github.com/therahulprasad/spiderman/crawler/db"
-	"github.com/therahulprasad/spiderman/crawler/config"
+	"github.com/therahulprasad/spiders/crawler/db"
+	"github.com/therahulprasad/spiders/crawler/config"
 	"log"
 )
 

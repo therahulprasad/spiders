@@ -1,13 +1,13 @@
 package crawler
 
 import (
-	"github.com/therahulprasad/spiderman/crawler/config"
+	"github.com/therahulprasad/spiders/crawler/config"
 	"regexp"
 	"log"
 	"strconv"
 	"strings"
 	"math"
-	"github.com/therahulprasad/spiderman/crawler/db"
+	"github.com/therahulprasad/spiders/crawler/db"
 )
 
 func push_all_batch_links(configuration config.Configuration) {

@@ -2,8 +2,8 @@ package crawler
 
 import (
 	"fmt"
-	"github.com/therahulprasad/spiderman/crawler/config"
-	"github.com/therahulprasad/spiderman/crawler/db"
+	"github.com/therahulprasad/spiders/crawler/config"
+	"github.com/therahulprasad/spiders/crawler/db"
 	"github.com/PuerkitoBio/goquery"
 	"os"
 	"io/ioutil"
@@ -12,6 +12,7 @@ import (
 	"time"
 	"crypto/md5"
 	"math/rand"
+	"strings"
 )
 
 func terminate_link_processor(killLinkProcessor, killLinkProcessorAck, chWaitForExit chan bool) {
@@ -190,6 +191,7 @@ func scrap(id int64, doc *goquery.Document, configuration config.Configuration) 
 	selections.Each(func(i int, s *goquery.Selection) {
 		count++
 		str := s.Text()
+		str = strings.TrimSpace(str)
 		strAll = strAll + str
 		ioutil.WriteFile(configuration.DataDir() + "/" + strconv.FormatInt(id, 10) + "_" + strconv.FormatInt(count, 10) + ".txt", []byte(str), os.FileMode(0777))
 	})

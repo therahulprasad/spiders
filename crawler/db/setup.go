@@ -3,7 +3,7 @@ package db
 import "database/sql"
 import (
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/therahulprasad/spiderman/crawler/config"
+	"github.com/therahulprasad/spiders/crawler/config"
 	"log"
 )
 
@@ -14,23 +14,23 @@ func Setup(configuration config.Configuration, resume bool) {
 		create_tables()
 	}
 	localPushStmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
-	if err != nil { log.Fatal("Error while preparing database statement - Push")}
+	if err != nil { log.Fatal("Error while preparing database statement - Push: " + err.Error())}
 	pushStmt = localPushStmt
 
 	localPushMultiStmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
-	if err != nil { log.Fatal("Error while preparing database statement - PushMulti") }
+	if err != nil { log.Fatal("Error while preparing database statement - PushMulti: " + err.Error()) }
 	pushMultiStmt = localPushMultiStmt
 
 	sql_pop := `UPDATE queue SET status=? WHERE id IN (
 				    SELECT id from queue WHERE status LIKE "waiting" ORDER BY id ASC LIMIT 1
 				)`
 	localPopStmt, err := db.Prepare(sql_pop)
-	if err != nil { log.Fatal("Error while preparing database statement - Pop") }
+	if err != nil { log.Fatal("Error while preparing database statement - Pop: " + err.Error()) }
 	popStmt = localPopStmt
 
 	sql_update := "UPDATE queue SET status=?, matches = ?, md5 = ? WHERE id = ?"
 	localUpdateStmt, err := db.Prepare(sql_update)
-	if err != nil { log.Fatal("Error while preparing database statement - Update") }
+	if err != nil { log.Fatal("Error while preparing database statement - Update: " + err.Error()) }
 	updateStmt = localUpdateStmt
 }
 

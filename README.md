@@ -1,5 +1,5 @@
-# Crawler :panda_face:
-A configurable and easy to use web crawler
+# spiders
+An easily configurable and easy to use web crawler. 
 
 ### Features
 1. Indefinitely crawls can crawl till end condition is met
@@ -16,6 +16,7 @@ _For example you can remove everything after #_
 _For example if you want to keep only english content and remove all other characters_
 
 ### Installation
+
 
 ### Usage
 
