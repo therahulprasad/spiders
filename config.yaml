@@ -1,0 +1,32 @@
+## Debug
+debug: false
+## Prints URL in terminal
+display_matched_url: false
+
+## Name of the project
+project: "http://aajtak.intoday.in/videos/aapki-property.html"
+# Type of project (crawl / batch)
+project_type: "crawl"
+# Directory to store downloaded content
+directory: "aajtak.intoday.in"
+# Number of workers
+web_count: 100
+
+### Crawler settings
+# First URL to crawl
+root_url: "http://aajtak.intoday.in/story/asus-zenfone-ar-launched-in-india-1-940893.html"
+# Regex to validate if link has to be crawled
+link_validator: "^http:\\/\\/aajtak.intoday.in\\/.*"
+# Regex to preprocess the link before queuing for example (#.*) will select all characters after # in the url
+link_sanitizer: "(#.*)"
+# Replacement for selected string from sanitizer
+link_sanitizer_replacement: ""
+
+### Batch processing settings
+batch_url: ""
+
+### Parser settings
+# Check for the content in the page only if this css selector is present, keep it blank to ignore this
+page_validator: ""
+# CSS Selector of the content to be parsed
+content_selector: ".storyBody"
