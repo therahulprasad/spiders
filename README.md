@@ -1,3 +1,5 @@
+![Spiders](https://github.com/therahulprasad/spiders/blob/master/assets/banner.png)
+
 # spiders
 An easy to use web crawler for collecting text. 
 
