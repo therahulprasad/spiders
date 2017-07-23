@@ -38,3 +38,4 @@ Use self explanatory `config.yaml` to configure the project.
 _v0.1 Initial Release_  
 _v0.2_  
 _v0.3 Batch Processing_
+
