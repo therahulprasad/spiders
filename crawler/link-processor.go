@@ -1,28 +1,29 @@
 package crawler
 
 import (
-	"regexp"
-	"github.com/therahulprasad/spiders/crawler/db"
+	"errors"
 	"fmt"
+	"log"
+	"net/url"
+	"path"
+	"regexp"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/therahulprasad/spiders/crawler/config"
-	"net/url"
-	"github.com/go-playground/log"
-	"errors"
-	"path"
+	"github.com/therahulprasad/spiders/crawler/db"
 )
 
 // TODO: Find a work around
 // Fake function to process kill signal for quit handler
-func fake_link_processor(kill, killLinkProcessorAck chan bool){
-	<- kill
+func fake_link_processor(kill, killLinkProcessorAck chan bool) {
+	<-kill
 	killLinkProcessorAck <- true
 }
 func link_processor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool) {
 	// TODO: How do I persist all the details before killing
 	for {
 		select {
-		case <- kill:
+		case <-kill:
 			killLinkProcessorAck <- true
 			return
 		case doc := <-docs:
@@ -38,11 +39,13 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 
 	var finalLinks []string
 	// Find all the links and queue it
-	doc.Find("a").Each(func (i int, s *goquery.Selection) {
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
 		link, ok := s.Attr("href")
 		if ok {
 			finalLink, ok, err := validate_url(link, configuration, doc.Url)
-			if err != nil { fmt.Println(err.Error()) }
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 
 			if ok {
 				if configuration.DisplayMatchedUrl {
@@ -55,7 +58,9 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 
 	if len(finalLinks) > 0 {
 		_, err := db.PushMulti(finalLinks, 0)
-		if err != nil {log.Println(err.Error())}
+		if err != nil {
+			log.Println(err.Error())
+		}
 	}
 }
 
@@ -67,7 +72,9 @@ func validate_url(link string, configuration config.Configuration, currentUrl *u
 	var err error
 
 	// If link is empty do nothing
-	if link == "" { return "", false, errors.New("Empty link") }
+	if link == "" {
+		return "", false, errors.New("Empty link")
+	}
 
 	// Find out domain of the url
 	//rootUrl, err := url.Parse(configuration.RootURL)
@@ -95,8 +102,10 @@ func validate_url(link string, configuration config.Configuration, currentUrl *u
 	// Check if URL matches configuration regex
 	matched := true
 	if configuration.LinkValidator != "" {
-		matched, err =  regexp.MatchString(configuration.LinkValidator, finalLink)
-		if err != nil {return "", false, err}
+		matched, err = regexp.MatchString(configuration.LinkValidator, finalLink)
+		if err != nil {
+			return "", false, err
+		}
 	}
 
 	// Check if links needs to be sanitized
