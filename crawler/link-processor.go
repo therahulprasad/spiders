@@ -3,7 +3,6 @@ package crawler
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"path"
 	"regexp"
@@ -15,11 +14,17 @@ import (
 
 // TODO: Find a work around
 // Fake function to process kill signal for quit handler
-func fake_link_processor(kill, killLinkProcessorAck chan bool) {
-	<-kill
-	killLinkProcessorAck <- true
-}
-func link_processor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool) {
+// func fakeLinkProcessor(kill, killLinkProcessorAck chan bool) {
+// 	<-kill
+// 	killLinkProcessorAck <- true
+// }
+
+// Wait for kill signal and
+// Process document to find all eligible links and add it to database
+func linkProcessor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool, processDoc bool) {
+	if configuration.Debug == true {
+		fmt.Println("linkProcessor started")
+	}
 	// TODO: How do I persist all the details before killing
 	for {
 		select {
@@ -27,12 +32,15 @@ func link_processor(docs chan *goquery.Document, configuration config.Configurat
 			killLinkProcessorAck <- true
 			return
 		case doc := <-docs:
-			ls_url(doc, configuration)
+			if processDoc == true {
+				lsURL(doc, configuration)
+			}
 		}
 	}
 }
 
-func ls_url(doc *goquery.Document, configuration config.Configuration) {
+// Process document to find all eligible links and add it to database
+func lsURL(doc *goquery.Document, configuration config.Configuration) {
 	if configuration.Debug {
 		fmt.Println("ls_url")
 	}
@@ -42,7 +50,7 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 	doc.Find("a").Each(func(i int, s *goquery.Selection) {
 		link, ok := s.Attr("href")
 		if ok {
-			finalLink, ok, err := validate_url(link, configuration, doc.Url)
+			finalLink, ok, err := validateURL(link, configuration, doc.Url)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -59,12 +67,12 @@ func ls_url(doc *goquery.Document, configuration config.Configuration) {
 	if len(finalLinks) > 0 {
 		_, err := db.PushMulti(finalLinks, 0)
 		if err != nil {
-			log.Println(err.Error())
+			fmt.Println(err.Error())
 		}
 	}
 }
 
-func validate_url(link string, configuration config.Configuration, currentUrl *url.URL) (string, bool, error) {
+func validateURL(link string, configuration config.Configuration, currentURL *url.URL) (string, bool, error) {
 	if configuration.Debug {
 		fmt.Println("validate_url")
 	}
@@ -80,23 +88,28 @@ func validate_url(link string, configuration config.Configuration, currentUrl *u
 	//rootUrl, err := url.Parse(configuration.RootURL)
 	//if err != nil {return "", false, err}
 
-	domainUrl := ""
-	domainUrl += currentUrl.Scheme + "://"
-	domainUrl += currentUrl.Host
+	domainURL := ""
+	domainURL += currentURL.Scheme + "://"
+	domainURL += currentURL.Host
 
-	currentPath := currentUrl.Path
+	currentPath := currentURL.Path
 
 	// Check if link is relative or absolute
-	isAbsoluteUrl := false
+	isAbsoluteURL := false
 	if len(link) >= 4 && link[0:4] == "http" {
-		isAbsoluteUrl = true
+		isAbsoluteURL = true
 	}
 
 	// Build final link to be added to database
 	finalLink := link
-	if !isAbsoluteUrl {
-		finalPath := path.Join(path.Dir(currentPath), link)
-		finalLink = domainUrl + finalPath
+	if !isAbsoluteURL {
+		// If link is relative to root
+		if link[0:1] == "/" {
+			finalLink = domainURL + link
+		} else {
+			finalPath := path.Join(path.Dir(currentPath), link)
+			finalLink = domainURL + finalPath
+		}
 	}
 
 	// Check if URL matches configuration regex
@@ -113,6 +126,15 @@ func validate_url(link string, configuration config.Configuration, currentUrl *u
 		re := regexp.MustCompile(configuration.LinkSanitizer)
 		finalLink = re.ReplaceAllString(finalLink, configuration.LinkSanitizerReplacement)
 	}
+
+	// fmt.Println("validate_url > link : " + link)
+	// fmt.Println("validate_url > finalLink after sanitizarion : " + finalLink)
+	// if matched {
+	// 	// fmt.Println("validate_url > matched : yes")
+
+	// } else {
+	// 	// fmt.Println("validate_url > matched : no")
+	// }
 
 	return finalLink, matched, nil
 	// Push URL duplicated will be ignored

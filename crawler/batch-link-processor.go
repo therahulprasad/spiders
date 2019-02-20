@@ -1,12 +1,13 @@
 package crawler
 
 import (
-	"github.com/therahulprasad/spiders/crawler/config"
-	"regexp"
 	"log"
+	"math"
+	"regexp"
 	"strconv"
 	"strings"
-	"math"
+
+	"github.com/therahulprasad/spiders/crawler/config"
 	"github.com/therahulprasad/spiders/crawler/db"
 )
 
@@ -30,7 +31,7 @@ func push_all_batch_links(configuration config.Configuration) {
 
 		// Find length of starting number for padding
 		start_len := len(matches[1])
-		padding_limit := math.Pow10(start_len-1)
+		padding_limit := math.Pow10(start_len - 1)
 
 		// Exit on invalid config
 		if end < start {
@@ -38,15 +39,15 @@ func push_all_batch_links(configuration config.Configuration) {
 		}
 
 		// Create list of links
-		for i:=start; i<=end; i++ {
+		for i := start; i <= end; i++ {
 			// Push every link to db
-			from := "[$"+matches[1]+"-$"+matches[2]+"]"
+			from := "[$" + matches[1] + "-$" + matches[2] + "]"
 
 			// Add padding of 0s
 			padding := ""
 			if i < int(padding_limit) {
 				digit_length := math.Floor(math.Log10(float64(i)))
-				for j:=int(digit_length); j<start_len-1; j++ {
+				for j := int(digit_length); j < start_len-1; j++ {
 					padding += "0"
 				}
 			}

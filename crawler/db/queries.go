@@ -1,13 +1,14 @@
 package db
 
 import (
-	_ "github.com/mattn/go-sqlite3"
-	"log"
-	"fmt"
 	"crypto/rand"
 	"database/sql"
-	"time"
 	"errors"
+	"fmt"
+	"log"
+	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // Inserts url into database and returns ID if successful
@@ -56,14 +57,20 @@ func pushMulti(urls []string, parent_id int) ([]int64, error) {
 		//if err != nil { return ids, err }
 
 		tx, err := db.Begin()
-		if err != nil { return ids, err }
+		if err != nil {
+			return ids, err
+		}
 
-		for _, url:= range urls {
+		for _, url := range urls {
 			res, err := tx.Stmt(pushMultiStmt).Exec(url, "2017-01-31 10:13", "waiting", parent_id)
-			if err != nil { return ids, err }
+			if err != nil {
+				return ids, err
+			}
 
 			id, err := res.LastInsertId()
-			if err != nil { return ids, err }
+			if err != nil {
+				return ids, err
+			}
 
 			ids = append(ids, id)
 		}
@@ -82,7 +89,7 @@ func Pop() (Node, error) {
 	return pop()
 }
 
-func pop() (Node, error){
+func pop() (Node, error) {
 	if db != nil {
 		// Update the row which will be popped
 
@@ -101,14 +108,14 @@ func pop() (Node, error){
 		_, err := popStmt.Exec(uuid)
 
 		if err != nil {
-			return Node {}, err
+			return Node{}, err
 		}
 
 		// Pop the row
 		sql_select := "SELECT * FROM queue WHERE status LIKE ?"
 		rows, err := db.Query(sql_select, uuid)
 		if err != nil {
-			return Node {}, err
+			return Node{}, err
 		}
 
 		node := Node{}
@@ -118,15 +125,21 @@ func pop() (Node, error){
 			var crawledOn, addedOn, md5hash sql.NullString
 			var matches sql.NullInt64
 			err := rows.Scan(&node.Id, &node.Link, &addedOn, &node.Status, &crawledOn, &node.ParentId, &matches, &md5hash)
-			if err != nil {return Node {}, err}
+			if err != nil {
+				return Node{}, err
+			}
 
 			if crawledOn.Valid {
 				node.CrawledOn, err = time.Parse(layout, crawledOn.String)
-				if err != nil {return Node {}, err}
+				if err != nil {
+					return Node{}, err
+				}
 			}
 			if addedOn.Valid {
 				node.AddedOn, err = time.Parse(layout, addedOn.String)
-				if err != nil {return Node {}, err}
+				if err != nil {
+					return Node{}, err
+				}
 			}
 			if matches.Valid {
 				node.Matches = matches.Int64
@@ -141,17 +154,28 @@ func pop() (Node, error){
 		log.Fatal("Database not initialized")
 	}
 
-	return Node {}, nil
+	return Node{}, nil
+}
+
+// CountRemainingRows counts number of remaining rows listed in database
+func CountRemainingRows() int {
+	count := 0
+	sqlCountRemaining := "SELECT COUNT(1) as remaining FROM queue WHERE status LIKE 'waiting'"
+	err := db.QueryRow(sqlCountRemaining).Scan(&count)
+	if err != nil {
+		log.Fatal("Error occuring while reading from database:" + err.Error())
+	}
+	return count
 }
 
 // Update status of row to success or failure
-func Update(pk, match_count int64, status, md5hash string) (error) {
+func Update(pk, match_count int64, status, md5hash string) error {
 	lockDbAccess()
 	defer ackDbWorkDone()
 	return update(pk, match_count, status, md5hash)
 }
 
-func update(pk, match_count int64, status, md5hash string) (error) {
+func update(pk, match_count int64, status, md5hash string) error {
 	// If status is not success or failure then return error
 	if !(status == Success || status == ValidationFailed) {
 		return errors.New("Invalid input")
@@ -162,7 +186,9 @@ func update(pk, match_count int64, status, md5hash string) (error) {
 	//if err != nil {return err}
 
 	_, err := updateStmt.Exec(status, match_count, md5hash, pk)
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

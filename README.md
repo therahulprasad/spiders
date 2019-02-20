@@ -1,7 +1,7 @@
 ![Spiders](https://github.com/therahulprasad/spiders/blob/master/assets/banner.png)
 
 # spiders
-An easy to use web crawler for collecting text. 
+An easy to use web crawler for collecting text.
 
 ### Features
 1. Indefinitely crawls till end condition is met
@@ -17,24 +17,24 @@ _For example you can remove everything after #_
 8. Batch URL processing  
 
 ### Installation
-If you do not have Go installed (Recommended)  
+#### If you do not have Go installed (Recommended)  
 - Download latest binaries from [release page](https://github.com/therahulprasad/spiders/releases)  
 - Copy binaries to executable PATH or run directly from terminal using `./spiders`  
 
-If you have Go installed  
+#### If you have Go installed  
 `go install github.com/therahulprasad/spiders`  
 and run `spiders` from terminal  
 
-If you are a windows users  
+#### If you are a windows users  
 - Upgrade to Linux  
 
 ### Usage
 For help use
 `./spiders -h`
 
-Create a `config.yaml` file and run 
+Create a `config.yaml` file and run
 `./spiders`
-    
+
 For using config which is not present in current directory use  
 `./spiders -config /path/to/config.yaml`
 
@@ -46,8 +46,20 @@ Use self explanatory `config.yaml` to configure the project.
 
 ### What next?  
 Create a UI
+Save config data in sqlite and implement --resume with db path instead of config path, let user override parameters using CLI arguments
+Add new project type for fetching pagniated API data
+Handle case: When craweling is complete.
+Add support for parsing set of specified tags and collecting data in json format
+
+### Bugs
+`Ctrl + C` does not work when workers are less
 
 ##### Change Log
-_v0.1 Initial Release_  
+_v0.1_  
+Initial Release  
 _v0.2_  
-_v0.3 Batch Processing_
+_v0.3_  
+Batch Processing  
+_v0.3.1_  
+Config is made mandatory flag
+Add two parameters in config to decide how to extract `text content_holder` (text/attr) and `content_tag_attr`

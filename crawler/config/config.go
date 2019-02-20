@@ -2,9 +2,10 @@ package config
 
 import (
 	"errors"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 var config Configuration
@@ -26,9 +27,14 @@ func Load(path string) error {
 		return err
 	}
 
-	// Validate Configuration
-	if !(config.ProjectType == PROJECT_TYPE_CRAWL || config.ProjectType == PROJECT_TYPE_BACTH)  {
+	// Validate supported Project Type
+	if !(config.ProjectType == PROJECT_TYPE_CRAWL || config.ProjectType == PROJECT_TYPE_BACTH) {
 		log.Fatal("Config:project_type - Only " + PROJECT_TYPE_BACTH + " & " + PROJECT_TYPE_CRAWL + " is supported.")
+	}
+
+	// Validate supported Content Holder
+	if !(config.ContentHolder == CONTENT_HOLDER_TEXT || config.ContentHolder == CONTENT_HOLDER_ATTR) {
+		log.Fatal("Config:content_holder - Only " + CONTENT_HOLDER_TEXT + " & " + CONTENT_HOLDER_ATTR + " is supported.")
 	}
 
 	// There is nothing to validate now :(
@@ -37,8 +43,8 @@ func Load(path string) error {
 
 // Returns configuration object if loaded otherwise returns error
 func Get() (Configuration, error) {
-	if (Configuration {}) == config {
-		return Configuration {}, errors.New("Configuration not loaded")
+	if (Configuration{}) == config {
+		return Configuration{}, errors.New("Configuration not loaded")
 	}
 	return config, nil
 }

@@ -23,6 +23,11 @@ link_sanitizer: "(#.*)"
 link_sanitizer_replacement: ""
 
 ### Batch processing settings
+# Batch URL example: https://www.example.com/[$01-$999]/[$1-$9]/sjkn
+# [$1-$999] will loop from 1 - 999
+# [$01-$999] will loop from 01 - 999
+# [$001-$099] will loop from 001 - 099
+# It will be ignored if project_type is not batch
 batch_url: ""
 
 ### Parser settings
@@ -30,3 +35,8 @@ batch_url: ""
 page_validator: ""
 # CSS Selector of the content to be parsed
 content_selector: ".storyBody"
+
+# This will determine if text will be fetched from selected tags or an attribute of tag will be selected (text/attr)
+content_holder: "attr"
+# Optional if content_holder is set to text otherwise it will be ignored
+content_tag_attr: "src"

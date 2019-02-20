@@ -1,27 +1,31 @@
 package main
 
 import (
-	"github.com/therahulprasad/spiders/crawler"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/therahulprasad/spiders/crawler"
 )
 
-const VERSION = "0.3"
+// VERSION it will be printed when -version flag is used
+const VERSION = "0.4"
+
+// MAJOR_CHANGE Whats new in this version, it will be printed when -version flag is used
 const MAJOR_CHANGE = "Batch Processing"
-const DEFAULT_CONFIG_FILENAME = "config.yaml"
+
+// const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
 func main() {
-	fmt.Println("Started")
 	verFlag := flag.Bool("version", false, "To get current versiion")
-	configPathFlag := flag.String("config", DEFAULT_CONFIG_FILENAME, "Path of json config file")
+	configPathFlag := flag.String("config", "", "Path of json config file")
 	resumeFlag := flag.Bool("resume", false, "Resume incomplete project")
 	flag.Parse()
 	if *verFlag == true {
+		fmt.Println("Multi threaded web crawler to collect text")
 		fmt.Println("Version: " + VERSION)
-		fmt.Println(MAJOR_CHANGE)
 		os.Exit(0)
 	}
 
