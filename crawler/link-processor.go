@@ -56,7 +56,7 @@ func lsURL(doc *goquery.Document, configuration config.Configuration) {
 			}
 
 			if ok {
-				if configuration.DisplayMatchedUrl {
+				if configuration.DisplayMatchedURL {
 					fmt.Println("Valid Link found: " + finalLink)
 				}
 				finalLinks = append(finalLinks, finalLink)

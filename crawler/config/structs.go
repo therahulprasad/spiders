@@ -3,7 +3,7 @@ package config
 // Configuration holds the difinition of configuration which will be parsed from config.yaml
 type Configuration struct {
 	Debug                    bool   `yaml:"debug"`
-	DisplayMatchedUrl        bool   `yaml:"display_matched_url"`
+	DisplayMatchedURL        bool   `yaml:"display_matched_url"`
 	Project                  string `yaml:"project"`
 	ProjectType              string `yaml:"project_type"`
 	WebCount                 int    `yaml:"web_count"`
@@ -20,11 +20,20 @@ type Configuration struct {
 	BatchURL                 string `yaml:"batch_url"`
 }
 
+// DataDir returns a directory where data will be stored
+// TODO: Make it configurable
 func (c *Configuration) DataDir() string {
 	return c.Directory + "/data"
 }
 
-const PROJECT_TYPE_CRAWL = "crawl"
-const PROJECT_TYPE_BACTH = "batch"
-const CONTENT_HOLDER_TEXT = "text"
-const CONTENT_HOLDER_ATTR = "attr"
+// PROJECTTYPECRAWL crawl
+const PROJECTTYPECRAWL = "crawl"
+
+// PROJECTTYPEBACTH batch
+const PROJECTTYPEBACTH = "batch"
+
+// CONTENTHOLDERTEXT text
+const CONTENTHOLDERTEXT = "text"
+
+// CONTENTHOLDERATTR attr
+const CONTENTHOLDERATTR = "attr"

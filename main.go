@@ -13,8 +13,8 @@ import (
 // VERSION it will be printed when -version flag is used
 const VERSION = "0.4"
 
-// MAJOR_CHANGE Whats new in this version, it will be printed when -version flag is used
-const MAJOR_CHANGE = "Batch Processing"
+// MAJORCHANGE Whats new in this version, it will be printed when -version flag is used
+const MAJORCHANGE = "Batch Processing"
 
 // const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
@@ -29,11 +29,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	config_path := *configPathFlag
+	configPath := *configPathFlag
 	resume := *resumeFlag
 
 	// Channel which waits for Crawler to end
-	ch_exit_wait := make(chan bool)
+	chExitWait := make(chan bool)
 
 	// Kill signal for workers
 	chKill := make(chan bool)
@@ -51,10 +51,10 @@ func main() {
 	}(chQuit, chKill)
 
 	// Start the crawler
-	crawler.Initialize(config_path, ch_exit_wait, chKill, resume)
+	crawler.Initialize(configPath, chExitWait, chKill, resume)
 
 	// Wait for Crawler to end
-	<-ch_exit_wait
+	<-chExitWait
 
 	fmt.Println("Bye")
 }

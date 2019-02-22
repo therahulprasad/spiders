@@ -77,7 +77,7 @@ func Initialize(path string, chWaitForExit, chKill chan bool, resume bool) {
 
 	processDoc := true
 	// if project_type is crawl then push root URL otherwise just ignore it Link_processor will take care of batches
-	if configuration.ProjectType == config.PROJECT_TYPE_CRAWL {
+	if configuration.ProjectType == config.PROJECTTYPECRAWL {
 		// First element is required only when starting a new project so ignore when a project is being resumed
 		if resume == false {
 			_, err := db.Push(configuration.RootURL, 0)
@@ -85,7 +85,7 @@ func Initialize(path string, chWaitForExit, chKill chan bool, resume bool) {
 				log.Fatal(err.Error())
 			}
 		}
-	} else if configuration.ProjectType == config.PROJECT_TYPE_BACTH {
+	} else if configuration.ProjectType == config.PROJECTTYPEBACTH {
 		if resume != true {
 			push_all_batch_links(configuration)
 		}
@@ -202,10 +202,10 @@ func pageProcessor(id int64, url string, configuration config.Configuration, chL
 
 	if article.Length() != 0 {
 		// Article found
-		if configuration.ContentHolder == config.CONTENT_HOLDER_TEXT {
+		if configuration.ContentHolder == config.CONTENTHOLDERTEXT {
 			// copy text
 			scrapText(id, doc, configuration)
-		} else if configuration.ContentHolder == config.CONTENT_HOLDER_ATTR {
+		} else if configuration.ContentHolder == config.CONTENTHOLDERATTR {
 			// copy attribute details
 			scrapTagAttr(id, doc, configuration)
 		} else {
