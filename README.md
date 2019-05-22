@@ -64,4 +64,10 @@ _v0.3_
 Batch Processing  
 _v0.3.1_  
 Config is made mandatory flag
-Add two parameters in config to decide how to extract `text content_holder` (text/attr) and `content_tag_attr`
+Add two parameters in config to decide how to extract `text content_holder` (text/attr) and `content_tag_attr`  
+_v.04_  
+batch support  
+attr grabbing support  
+Configuration format updated from json to yaml  
+-  encode.php not needed now  
+
