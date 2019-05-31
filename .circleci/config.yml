@@ -25,7 +25,7 @@ jobs:
       - run: go get -v -t -d ./...
       - run: go test -v ./...
       - run: go build
-      - persist_to_workspace
+      - persist_to_workspace:
           paths:
             - spiders
         
