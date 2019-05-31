@@ -31,15 +31,8 @@ jobs:
             - spiders
         
   publish-github-release:
-    requires:
-      - build
     docker:
       - image: cibuilds/github:0.10
-    filters:
-      branches:
-        ignore: /.*/
-      tags:
-        only: /.*/
     steps:
       - attach_workspace:
           at: /tmp/workspace
@@ -58,3 +51,8 @@ workflows:
     - publish-github-release:
         requires:
           - build
+        filters:
+          branches:
+            ignore: /.*/
+          tags:
+            only: /.*/
