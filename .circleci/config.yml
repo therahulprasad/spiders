@@ -31,8 +31,15 @@ jobs:
             - spiders
         
   publish-github-release:
+    requires:
+      - build
     docker:
       - image: cibuilds/github:0.10
+    filters:
+      branches:
+        ignore: /.*/
+      tags:
+        only: /.*/
     steps:
       - attach_workspace:
           at: /tmp/workspace
@@ -42,3 +49,9 @@ jobs:
             VERSION=$(git describe --exact-match --tags)
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} /tmp/workspace/spiders
 
+workflows:
+  version: 2
+  workflow:
+    jobs:
+    - build
+    - publish-github-release
