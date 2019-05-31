@@ -26,6 +26,7 @@ jobs:
       - run: go test -v ./...
       - run: go build
       - persist_to_workspace:
+          root: /go/src/github.com/therahulprasad/spiders
           paths:
             - spiders
         
