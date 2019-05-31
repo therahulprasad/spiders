@@ -39,7 +39,7 @@ jobs:
       branches:
         ignore: /.*/
       tags:
-        only: /^\d+\.\d+\.\d+$/
+        only: /.*/
     steps:
       - attach_workspace:
           at: /tmp/workspace
