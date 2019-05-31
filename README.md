@@ -30,10 +30,10 @@ and run `spiders` from terminal
 - Upgrade to Linux  
 
 ### Usage
-For help use
+For help use  
 `./spiders -h`
 
-Create a `config.yaml` file and run
+Create a `config.yaml` file and run  
 `./spiders`
 
 For using config which is not present in current directory use  
