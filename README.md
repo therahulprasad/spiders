@@ -1,7 +1,8 @@
 ![Spiders](https://github.com/therahulprasad/spiders/blob/master/assets/banner.png)
 
 # spiders
-An easy to use web crawler for collecting text.
+An easy to use web crawler for collecting text.  
+[![CircleCI](https://circleci.com/gh/therahulprasad/spiders.svg?style=svg)](https://circleci.com/gh/therahulprasad/spiders)  
 
 ### Features
 1. Indefinitely crawls till end condition is met
