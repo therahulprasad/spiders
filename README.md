@@ -45,13 +45,14 @@ Resume previous project by running
 Use self explanatory `config.yaml` to configure the project.
 
 ### What next?  
-Do not download non html resourcees  
-support link which starts with *//*www.example.com
-Create a UI  
-Save config data in sqlite and implement --resume with db path instead of config path, let user override parameters using CLI arguments  
-Add new project type for fetching pagniated API data  
-Handle case: When craweling is complete.  
-Add support for parsing set of specified tags and collecting data in json format  
+- Do not download non html resourcees  
+- support link which starts with *//*www.example.com  
+- Create a UI  
+- Save config data in sqlite and implement --resume with db path instead of config path, let user override parameters using CLI arguments  
+- Add new project type for fetching pagniated API data  
+- Handle case: When craweling is complete.  
+- Add support for parsing set of specified tags and collecting data in json format  
+- Automated release on Tag using CircleCI
 
 ### Bugs
 `Ctrl + C` does not work when workers are less
