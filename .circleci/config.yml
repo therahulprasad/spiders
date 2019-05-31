@@ -25,3 +25,26 @@ jobs:
       - run: go get -v -t -d ./...
       - run: go test -v ./...
       - run: go build
+      - persist_to_workspace
+          paths:
+            - spiders
+        
+  publish-github-release:
+    requires:
+      - build
+    docker:
+      - image: cibuilds/github:0.10
+    filters:
+      branches:
+        ignore: /.*/
+      tags:
+        only: /^\d+\.\d+\.\d+$/
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            VERSION=$(git describe --exact-match --tags)
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} /tmp/workspace/spiders
+
