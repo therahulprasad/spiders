@@ -33,8 +33,8 @@ func Load(path string) error {
 	}
 
 	// Validate supported Content Holder
-	if !(config.ContentHolder == CONTENTHOLDERTEXT || config.ContentHolder == CONTENTHOLDERATTR) {
-		log.Fatal("Config:content_holder - Only " + CONTENTHOLDERTEXT + " & " + CONTENTHOLDERATTR + " is supported.")
+	if !(config.ContentHolder == CONTENTHOLDERTEXT || config.ContentHolder == CONTENTHOLDERATTR || config.ContentHolder == CONTENTHOLDERHTML) {
+		log.Fatal("Config:content_holder - Only " + CONTENTHOLDERHTML + ", " + CONTENTHOLDERTEXT + " & " + CONTENTHOLDERATTR + " is supported.")
 	}
 
 	// There is nothing to validate now :(

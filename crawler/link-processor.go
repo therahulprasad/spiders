@@ -1,7 +1,6 @@
 package crawler
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -56,10 +55,15 @@ func lsURL(doc *goquery.Document, configuration config.Configuration) {
 			}
 
 			if ok {
+				//finalLink = configuration.ProxyAPI + finalLink
 				if configuration.DisplayMatchedURL {
 					fmt.Println("Valid Link found: " + finalLink)
 				}
 				finalLinks = append(finalLinks, finalLink)
+			} else {
+				if configuration.Debug == true {
+					fmt.Println("Invalid URL: " + finalLink)
+				}
 			}
 		}
 	})
@@ -74,23 +78,34 @@ func lsURL(doc *goquery.Document, configuration config.Configuration) {
 
 func validateURL(link string, configuration config.Configuration, currentURL *url.URL) (string, bool, error) {
 	if configuration.Debug {
-		fmt.Println("validate_url")
+		fmt.Println("validate_url: " + link)
 	}
 
 	var err error
 
 	// If link is empty do nothing
 	if link == "" {
-		return "", false, errors.New("Empty link")
+		return "", false, nil
 	}
 
 	// Find out domain of the url
-	//rootUrl, err := url.Parse(configuration.RootURL)
+	rootUrl, err := url.Parse(configuration.RootURL)
+	//fmt.Println(rootUrl)
+	//fmt.Println(rootUrl.Scheme)
+	//fmt.Println(rootUrl.Host)
+	//fmt.Println(err)
 	//if err != nil {return "", false, err}
 
+	//configuration.RootURL
+
 	domainURL := ""
-	domainURL += currentURL.Scheme + "://"
-	domainURL += currentURL.Host
+	if configuration.ProxyAPI == "" {
+		domainURL += currentURL.Scheme + "://"
+		domainURL += currentURL.Host
+	} else {
+		domainURL += rootUrl.Scheme + "://"
+		domainURL += rootUrl.Host
+	}
 
 	currentPath := currentURL.Path
 
@@ -107,8 +122,14 @@ func validateURL(link string, configuration config.Configuration, currentURL *ur
 		if link[0:1] == "/" {
 			finalLink = domainURL + link
 		} else {
-			finalPath := path.Join(path.Dir(currentPath), link)
-			finalLink = domainURL + finalPath
+			if configuration.ProxyAPI == "" {
+				finalPath := path.Join(path.Dir(currentPath), link)
+				finalLink = domainURL + finalPath
+			} else {
+				if configuration.Debug == true {
+					fmt.Println("The case of URL not relative to ROOT with ProxyAPI is not handled")
+				}
+			}
 		}
 	}
 

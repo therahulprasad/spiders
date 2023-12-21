@@ -185,34 +185,38 @@ func processPageWorker(configuration config.Configuration, chLinkProcessor chan 
 }
 
 func pageProcessor(id int64, url string, configuration config.Configuration, chLinkProcessor chan *goquery.Document) error {
-	fmt.Println("Processing page: " + url)
+	//if configuration.Debug {
+		fmt.Println("Processing page: " + url)
+	//}
 	// Open the url
-	doc, err := goquery.NewDocument(url)
+	doc, err := goquery.NewDocument(configuration.ProxyAPI + url)
 	if err != nil {
 		return err
 	}
 
-	// pageValidator := configuration.PageValidator
-	// if (configuration.PageValidator) == "" {
-	// 	pageValidator = ".*"
-	// }
+	pageValidator := configuration.PageValidator
+	if configuration.PageValidator == "" {
+		pageValidator = "body"
+	}
 
 	// Check if page contains article
-	article := doc.Find(configuration.PageValidator)
-
+	article := doc.Find(pageValidator)
 	if article.Length() != 0 {
 		// Article found
-		if configuration.ContentHolder == config.CONTENTHOLDERTEXT {
+		if configuration.ContentHolder == config.CONTENTHOLDERTEXT || configuration.ContentHolder == config.CONTENTHOLDERHTML {
 			// copy text
-			scrapText(id, doc, configuration)
+			scrapText(id, doc, configuration, url)
 		} else if configuration.ContentHolder == config.CONTENTHOLDERATTR {
 			// copy attribute details
 			scrapTagAttr(id, doc, configuration)
 		} else {
 			log.Fatal("Should not reach here because configuration.ContentHolder is already validated when config was loaded")
 		}
-
 	} else {
+		if configuration.Debug {
+			fmt.Println("Invalid page ! based on page validation rule: '" + pageValidator + "' URL: " + url)
+			fmt.Println(doc.Html())
+		}
 		db.Update(id, 0, db.ValidationFailed, "")
 	}
 	// Process all links in the doc
@@ -223,7 +227,7 @@ func pageProcessor(id int64, url string, configuration config.Configuration, chL
 }
 
 // Scraps data and create a text files for each selector
-func scrapText(id int64, doc *goquery.Document, configuration config.Configuration) {
+func scrapText(id int64, doc *goquery.Document, configuration config.Configuration, url string) {
 	if configuration.Debug {
 		fmt.Println("scrapText")
 	}
@@ -231,11 +235,23 @@ func scrapText(id int64, doc *goquery.Document, configuration config.Configurati
 	var count int64 = 0
 	strAll := ""
 	selections := doc.Find(configuration.ContentSelector)
+	if selections.Length() == 0 {
+		if configuration.Debug {
+			fmt.Println("No content found ! based on content selection rule: '" + configuration.ContentSelector + "' on URL: " + url)
+		}
+	}
 	selections.Each(func(i int, s *goquery.Selection) {
 		count++
-		str := s.Text()
-		str = strings.TrimSpace(str)
-		strAll = strAll + str
+		str := ""
+		if configuration.ContentHolder == config.CONTENTHOLDERTEXT {
+			str = s.Text()
+			str = strings.TrimSpace(str)
+			strAll = strAll + str
+		}
+		if configuration.ContentHolder == config.CONTENTHOLDERHTML {
+			str, _ = s.Html()
+			strAll = strAll + str
+		}		
 		ioutil.WriteFile(configuration.DataDir()+"/"+strconv.FormatInt(id, 10)+"_"+strconv.FormatInt(count, 10)+".txt", []byte(str), os.FileMode(0777))
 	})
 

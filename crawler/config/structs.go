@@ -14,10 +14,11 @@ type Configuration struct {
 	LinkSanitizer            string `yaml:"link_sanitizer"`
 	LinkSanitizerReplacement string `yaml:"link_sanitizer_replacement"`
 	ContentSelector          string `yaml:"content_selector"`
-	ContentHolder            string `yaml:"content_holder"`   // text,attr
+	ContentHolder            string `yaml:"content_holder"`   // text,attr,html
 	ContentTagAttr           string `yaml:"content_tag_attr"` // optional
 	PageValidator            string `yaml:"page_validator"`
 	BatchURL                 string `yaml:"batch_url"`
+	ProxyAPI				 string `yaml:"proxy_api"`		  // optional
 }
 
 // DataDir returns a directory where data will be stored
@@ -37,3 +38,6 @@ const CONTENTHOLDERTEXT = "text"
 
 // CONTENTHOLDERATTR attr
 const CONTENTHOLDERATTR = "attr"
+
+// CONTENTHOLDERATTR html
+const CONTENTHOLDERHTML = "html"

@@ -36,7 +36,11 @@ page_validator: ""
 # CSS Selector of the content to be parsed
 content_selector: ".storyBody"
 
-# This will determine if text will be fetched from selected tags or an attribute of tag will be selected (text/attr)
+# This will determine if text will be fetched from selected tags or an attribute of tag will be selected (text/attr/html)
 content_holder: "attr"
 # Optional if content_holder is set to text otherwise it will be ignored
 content_tag_attr: "src"
+
+# To use paid proxy API, URL will be appended to it before fetching. Leave it blank otherwise
+# proxy_api: "http://api.scraperapi.com?api_key=YOURKEYHERE&url="
+proxy_api: ""
