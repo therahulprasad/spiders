@@ -37,10 +37,10 @@ Create a `config.yaml` file and run
 `./spiders`
 
 For using config which is not present in current directory use  
-`./spiders -config /path/to/config.yaml`
+`./spiders -c /path/to/config.yaml`
 
 Resume previous project by running   
-`./spiders --resume`  
+`./spiders -r -c config.yaml`  
 
 ### Customization
 Use self explanatory `config.yaml` to configure the project.
