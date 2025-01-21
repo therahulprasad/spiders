@@ -157,7 +157,7 @@ func processPageWorker(configuration config.Configuration, chLinkProcessor chan 
 			return
 		default:
 			// Wait for random time betweeb 1 - 5 seconds
-			time.Sleep(time.Duration(random(1, 5000)) * time.Millisecond)
+			time.Sleep(time.Duration(random(1000, 5000)) * time.Millisecond)
 
 			node, err := db.Pop()
 			if err != nil {
@@ -176,7 +176,7 @@ func processPageWorker(configuration config.Configuration, chLinkProcessor chan 
 				// }
 
 				// Wait for random time
-				time.Sleep(time.Duration(random(1, 5000)) * time.Millisecond)
+				time.Sleep(time.Duration(random(1000, 5000)) * time.Millisecond)
 			} else {
 				pageProcessor(node.Id, node.Link, configuration, chLinkProcessor)
 			}
@@ -186,7 +186,7 @@ func processPageWorker(configuration config.Configuration, chLinkProcessor chan 
 
 func pageProcessor(id int64, url string, configuration config.Configuration, chLinkProcessor chan *goquery.Document) error {
 	//if configuration.Debug {
-		fmt.Println("Processing page: " + url)
+	fmt.Println("Processing page: " + url)
 	//}
 	// Open the url
 	doc, err := goquery.NewDocument(configuration.ProxyAPI + url)
@@ -251,7 +251,7 @@ func scrapText(id int64, doc *goquery.Document, configuration config.Configurati
 		if configuration.ContentHolder == config.CONTENTHOLDERHTML {
 			str, _ = s.Html()
 			strAll = strAll + str
-		}		
+		}
 		ioutil.WriteFile(configuration.DataDir()+"/"+strconv.FormatInt(id, 10)+"_"+strconv.FormatInt(count, 10)+".txt", []byte(str), os.FileMode(0777))
 	})
 

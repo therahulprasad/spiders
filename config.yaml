@@ -17,6 +17,10 @@ web_count: 100
 root_url: "http://example.com/"
 # Regex to validate if link has to be crawled
 link_validator: "^http://example.com/.*"
+# List of Regex which needs to be ignored
+link_invalidators:
+  - "^http://example.com/about"
+  - "^http://example.com/contact/.*"
 # Regex to preprocess the link before queuing for example (#.*) will select all characters after # in the url
 link_sanitizer: "(#.*)"
 # Replacement for selected string from sanitizer

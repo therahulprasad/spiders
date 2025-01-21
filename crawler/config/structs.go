@@ -11,6 +11,7 @@ type Configuration struct {
 	RootURLTest              string `yaml:"root_url_test"`
 	Directory                string `yaml:"directory"`
 	LinkValidator            string `yaml:"link_validator"`
+	LinkInvalidators         []string `yaml:"link_invalidators"`
 	LinkSanitizer            string `yaml:"link_sanitizer"`
 	LinkSanitizerReplacement string `yaml:"link_sanitizer_replacement"`
 	ContentSelector          string `yaml:"content_selector"`

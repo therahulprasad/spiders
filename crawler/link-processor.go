@@ -31,7 +31,7 @@ func linkProcessor(docs chan *goquery.Document, configuration config.Configurati
 			killLinkProcessorAck <- true
 			return
 		case doc := <-docs:
-			if processDoc == true {
+			if processDoc {
 				lsURL(doc, configuration)
 			}
 		}
@@ -61,7 +61,7 @@ func lsURL(doc *goquery.Document, configuration config.Configuration) {
 				}
 				finalLinks = append(finalLinks, finalLink)
 			} else {
-				if configuration.Debug == true {
+				if configuration.Debug {
 					fmt.Println("Invalid URL: " + finalLink)
 				}
 			}
@@ -89,7 +89,7 @@ func validateURL(link string, configuration config.Configuration, currentURL *ur
 	}
 
 	// Find out domain of the url
-	rootUrl, err := url.Parse(configuration.RootURL)
+	rootUrl, _ := url.Parse(configuration.RootURL)
 	//fmt.Println(rootUrl)
 	//fmt.Println(rootUrl.Scheme)
 	//fmt.Println(rootUrl.Host)
@@ -126,7 +126,7 @@ func validateURL(link string, configuration config.Configuration, currentURL *ur
 				finalPath := path.Join(path.Dir(currentPath), link)
 				finalLink = domainURL + finalPath
 			} else {
-				if configuration.Debug == true {
+				if configuration.Debug {
 					fmt.Println("The case of URL not relative to ROOT with ProxyAPI is not handled")
 				}
 			}
@@ -137,8 +137,29 @@ func validateURL(link string, configuration config.Configuration, currentURL *ur
 	matched := true
 	if configuration.LinkValidator != "" {
 		matched, err = regexp.MatchString(configuration.LinkValidator, finalLink)
+		if configuration.Debug {
+			if matched {
+				fmt.Println("Link validator matched: " + finalLink)
+			} else {
+				fmt.Println("Link validator not matched: " + finalLink)
+			}
+		}
 		if err != nil {
 			return "", false, err
+		}
+	}
+
+	invalid_matched := false
+	// Check if link is invalid and return empty url
+	for _, invalidator := range configuration.LinkInvalidators {
+		// If regex is empty then skip
+		if invalidator == "" {
+			continue
+		}
+		invalid_matched, _ = regexp.MatchString(invalidator, finalLink) // If regex does not match, ignore
+		if invalid_matched {
+			matched = false
+			break
 		}
 	}
 

@@ -43,7 +43,7 @@ func Load(path string) error {
 
 // Get gets configuration object if loaded otherwise returns error
 func Get() (Configuration, error) {
-	if (Configuration{}) == config {
+	if config.ProjectType == "" {
 		return Configuration{}, errors.New("Configuration not loaded")
 	}
 	return config, nil

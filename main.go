@@ -19,10 +19,14 @@ const MAJORCHANGE = "Batch Processing"
 // const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
 func main() {
-	verFlag := flag.Bool("version", false, "To get current versiion")
-	configPathFlag := flag.String("config", "", "Path of json config file")
-	resumeFlag := flag.Bool("resume", false, "Resume incomplete project")
+	verFlag := flag.Bool("v", false, "To get current versiion")
+	configPathFlag := flag.String("c", "", "Path of json config file")
+	resumeFlag := flag.Bool("r", false, "Resume incomplete project")
 	flag.Parse()
+	if *configPathFlag == "" {
+		fmt.Println("Config flag is mising")
+		os.Exit(1)
+	}
 	if *verFlag == true {
 		fmt.Println("Multi threaded web crawler to collect text")
 		fmt.Println("Version: " + VERSION)
