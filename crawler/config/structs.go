@@ -32,8 +32,8 @@ func (c *Configuration) DataDir() string {
 // PROJECTTYPECRAWL crawl
 const PROJECTTYPECRAWL = "crawl"
 
-// PROJECTTYPEBACTH batch
-const PROJECTTYPEBACTH = "batch"
+// PROJECTTYPEBATCH batch
+const PROJECTTYPEBATCH = "batch"
 
 // CONTENTHOLDERTEXT text
 const CONTENTHOLDERTEXT = "text"

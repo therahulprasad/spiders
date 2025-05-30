@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,92 +16,99 @@ import (
 )
 
 func terminateLinkProcessor(killLinkProcessor, killLinkProcessorAck chan bool) {
-	fmt.Println("Terminating link processor")
-
-	// Kill link processor
+	log.Println("Terminating link processor")
 	killLinkProcessor <- true
-
-	// Wait for goroutines to be killed
 	<-killLinkProcessorAck
-	//
-	// // Exit
-	// chWaitForExit <- true
 }
 
-func sigKillHandller(chKill, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit chan bool) {
+func shutdownHandler(chKill, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit chan bool) {
 	<-chKill
 
-	fmt.Println("Sigterm received, Killing all workers")
-	killAllWorker <- true // This will kill all workers and then terminate link processor
+	log.Println("Shutdown signal received, stopping all workers")
+	killAllWorker <- true
 
-	// wait for all workers to exit
 	<-killAllWorkerAck
-
 	terminateLinkProcessor(killLinkProcessor, killLinkProcessorAck)
 
-	// Send chWaitForExit (This will terminate the program)
-	// This should only ne sent when all groutines has been killed
 	chWaitForExit <- true
 }
 
-// Initialize Initializes Crawler
-func Initialize(path string, chWaitForExit, chKill chan bool, resume bool) {
-	// Setup system
-	configuration := Setup(path, resume)
+type Crawler struct {
+	config           config.Configuration
+	docsChan         chan *goquery.Document
+	killWorker       chan int
+	numWorkers       int
+	completionChan   chan bool
+	activeWorkers    int
+	workDoneChan     chan bool
+}
 
-	// Kill switch for link processor
+func NewCrawler(cfg config.Configuration) *Crawler {
+	return &Crawler{
+		config:         cfg,
+		docsChan:       make(chan *goquery.Document),
+		killWorker:     make(chan int),
+		numWorkers:     cfg.WebCount,
+		completionChan: make(chan bool),
+		activeWorkers:  0,
+		workDoneChan:   make(chan bool),
+	}
+}
+
+func (c *Crawler) initializeURLs(resume bool) error {
+	if c.config.ProjectType == config.PROJECTTYPECRAWL {
+		if !resume {
+			_, err := db.Push(c.config.RootURL, 0)
+			if err != nil {
+				return fmt.Errorf("failed to push root URL: %w", err)
+			}
+		}
+	} else if c.config.ProjectType == config.PROJECTTYPEBATCH {
+		if !resume {
+			if err := pushAllBatchLinks(c.config); err != nil {
+				return fmt.Errorf("failed to push batch URLs: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Crawler) startWorkers(killWorker chan int) {
+	for i := 0; i < c.numWorkers; i++ {
+		go processPageWorker(c.config, c.docsChan, killWorker, c.workDoneChan)
+	}
+}
+
+func Initialize(configPath string, chWaitForExit, chKill chan bool, resume bool) {
+	configuration := Setup(configPath, resume)
+
 	killLinkProcessor := make(chan bool)
 	killLinkProcessorAck := make(chan bool)
-
-	// Single switch to kill all workers
 	killAllWorker := make(chan bool)
 	killAllWorkerAck := make(chan bool)
 
-	// Kill workers individually
-	killWorker := make(chan int)
-	// Worker death acknowledgement
-	// chWorkerCount := make(chan int)
+	go shutdownHandler(chKill, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit)
 
-	// Handle Ctrl + C
-	go sigKillHandller(chKill, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit)
-
-	// Channel for passing Documents
-	docs_channel := make(chan *goquery.Document)
-
-	// Handle resuming on completed project
-	if resume == true && db.CountRemainingRows() == 0 {
-		fmt.Println("Project is complete. There is no new link to crawl in database.")
+	if resume && db.CountRemainingRows() == 0 {
+		log.Println("Project is complete. No remaining URLs to crawl.")
 		os.Exit(0)
 	}
 
-	processDoc := true
-	// if project_type is crawl then push root URL otherwise just ignore it Link_processor will take care of batches
-	if configuration.ProjectType == config.PROJECTTYPECRAWL {
-		// First element is required only when starting a new project so ignore when a project is being resumed
-		if resume == false {
-			_, err := db.Push(configuration.RootURL, 0)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-		}
-	} else if configuration.ProjectType == config.PROJECTTYPEBACTH {
-		if resume != true {
-			push_all_batch_links(configuration)
-		}
-		processDoc = false
-		// go fakeLinkProcessor(killLinkProcessor, killLinkProcessorAck)
+	crawler := NewCrawler(configuration)
+	if err := crawler.initializeURLs(resume); err != nil {
+		log.Fatal(err)
 	}
 
-	// Start 1 link processor goroutine
-	go linkProcessor(docs_channel, configuration, killLinkProcessor, killLinkProcessorAck, processDoc)
+	processDoc := configuration.ProjectType == config.PROJECTTYPECRAWL
+	go linkProcessor(crawler.docsChan, configuration, killLinkProcessor, killLinkProcessorAck, processDoc)
 
-	// Start workers for processing pages
-	numWorkers := configuration.WebCount
-	for i := 0; i < numWorkers; i++ {
-		go processPageWorker(configuration, docs_channel, killWorker)
+	crawler.startWorkers(crawler.killWorker)
+	go workerManager(crawler.killWorker, crawler.numWorkers, killAllWorker, killAllWorkerAck)
+
+	// Start completion monitor for batch processing
+	if configuration.ProjectType == config.PROJECTTYPEBATCH {
+		go completionMonitor(configuration, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit)
 	}
-	go workerManager(killWorker, numWorkers, killAllWorker, killAllWorkerAck)
-	// go processFirstPage(configuration, docs_channel)
 }
 
 // If crawling for the first time, DB will just contain single link
@@ -124,175 +130,206 @@ func workerManager(killWorker chan int, workerCount int, killAllWorker, killAllW
 	for {
 		select {
 		case <-killAllWorker:
-			// Request to kill all Workers received
-			// Kill remaining workers
-			fmt.Println(workerCount)
-			for i := workerCount; i > 0; i-- {
-				// Kill a worker
+			log.Printf("Stopping %d workers", workerCount)
+			for i := 0; i < workerCount; i++ {
 				killWorker <- 1
-
-				// // Get the acknowledgement
-				// <-chWorkerCount
 			}
-
-			// All workers are killed. Now return
 			killAllWorkerAck <- true
 			return
-			// // When all workers are killed, Terminate
-			// terminateLinkProcessor(killLinkProcessor, killLinkProcessorAck, chWaitForExit)
 		}
 	}
 }
 
-func random(min, max int) int {
+func randomDelay(min, max int) int {
 	return rand.Intn(max-min) + min
 }
-func processPageWorker(configuration config.Configuration, chLinkProcessor chan *goquery.Document, killWorker chan int) {
+func processPageWorker(configuration config.Configuration, chLinkProcessor chan *goquery.Document, killWorker chan int, workDoneChan chan bool) {
+	emptyQueueCount := 0
+	maxEmptyChecks := 3 // Number of consecutive empty queue checks before considering work done
+
 	for {
 		select {
 		case <-killWorker:
-			if configuration.Debug == true {
-				fmt.Println("Killed")
+			if configuration.Debug {
+				log.Println("Worker terminated")
 			}
 			return
 		default:
-			// Wait for random time betweeb 1 - 5 seconds
-			time.Sleep(time.Duration(random(1000, 5000)) * time.Millisecond)
+			time.Sleep(time.Duration(randomDelay(1000, 5000)) * time.Millisecond)
 
 			node, err := db.Pop()
 			if err != nil {
-				log.Println("Error while db.Pop @ process_page: " + err.Error())
+				log.Printf("Error retrieving URL from queue: %v", err)
+				continue
 			}
 
-			// if empty value is returned. Wait for 10 seconds and try again
 			if node == (db.Node{}) {
-				if configuration.Debug == true {
-					fmt.Println("Empty Node :(")
+				emptyQueueCount++
+				if configuration.Debug {
+					log.Printf("No URLs available in queue (check %d/%d)", emptyQueueCount, maxEmptyChecks)
 				}
 
-				// // Check if database contains 0 new nodes
-				// if db.CountRemainingRows() == 0 {
-				// 	killWorker <- 1
-				// }
+				// For batch processing, check if work is truly complete
+				if configuration.ProjectType == config.PROJECTTYPEBATCH && emptyQueueCount >= maxEmptyChecks {
+					remainingCount := db.CountRemainingRows()
+					if remainingCount == 0 {
+						if configuration.Debug {
+							log.Println("Batch processing complete, worker shutting down")
+						}
+						select {
+						case workDoneChan <- true:
+						default:
+						}
+						return
+					}
+				}
 
-				// Wait for random time
-				time.Sleep(time.Duration(random(1000, 5000)) * time.Millisecond)
-			} else {
-				pageProcessor(node.Id, node.Link, configuration, chLinkProcessor)
+				time.Sleep(time.Duration(randomDelay(1000, 5000)) * time.Millisecond)
+				continue
+			}
+
+			// Reset empty queue counter when work is found
+			emptyQueueCount = 0
+
+			if err := pageProcessor(node.ID, node.Link, configuration, chLinkProcessor); err != nil {
+				log.Printf("Error processing page %s: %v", node.Link, err)
 			}
 		}
 	}
 }
 
 func pageProcessor(id int64, url string, configuration config.Configuration, chLinkProcessor chan *goquery.Document) error {
-	//if configuration.Debug {
-	fmt.Println("Processing page: " + url)
-	//}
-	// Open the url
+	log.Printf("Processing page: %s", url)
+
 	doc, err := goquery.NewDocument(configuration.ProxyAPI + url)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch page %s: %w", url, err)
 	}
 
 	pageValidator := configuration.PageValidator
-	if configuration.PageValidator == "" {
+	if pageValidator == "" {
 		pageValidator = "body"
 	}
 
-	// Check if page contains article
 	article := doc.Find(pageValidator)
-	if article.Length() != 0 {
-		// Article found
-		if configuration.ContentHolder == config.CONTENTHOLDERTEXT || configuration.ContentHolder == config.CONTENTHOLDERHTML {
-			// copy text
-			scrapText(id, doc, configuration, url)
-		} else if configuration.ContentHolder == config.CONTENTHOLDERATTR {
-			// copy attribute details
-			scrapTagAttr(id, doc, configuration)
-		} else {
-			log.Fatal("Should not reach here because configuration.ContentHolder is already validated when config was loaded")
-		}
-	} else {
+	if article.Length() == 0 {
 		if configuration.Debug {
-			fmt.Println("Invalid page ! based on page validation rule: '" + pageValidator + "' URL: " + url)
-			fmt.Println(doc.Html())
+			log.Printf("Page validation failed for %s: no elements found matching '%s'", url, pageValidator)
 		}
-		db.Update(id, 0, db.ValidationFailed, "")
+		return db.Update(id, 0, db.ValidationFailed, "")
 	}
-	// Process all links in the doc
-	chLinkProcessor <- doc
-	//ls_url(doc, configuration)
 
+	switch configuration.ContentHolder {
+	case config.CONTENTHOLDERTEXT, config.CONTENTHOLDERHTML:
+		if err := extractTextContent(id, doc, configuration, url); err != nil {
+			return fmt.Errorf("failed to extract text content: %w", err)
+		}
+	case config.CONTENTHOLDERATTR:
+		if err := extractAttributeContent(id, doc, configuration); err != nil {
+			return fmt.Errorf("failed to extract attribute content: %w", err)
+		}
+	default:
+		return fmt.Errorf("invalid content holder type: %s", configuration.ContentHolder)
+	}
+
+	chLinkProcessor <- doc
 	return nil
 }
 
-// Scraps data and create a text files for each selector
-func scrapText(id int64, doc *goquery.Document, configuration config.Configuration, url string) {
+func extractTextContent(id int64, doc *goquery.Document, configuration config.Configuration, url string) error {
 	if configuration.Debug {
-		fmt.Println("scrapText")
+		log.Println("Extracting text content")
 	}
 
-	var count int64 = 0
-	strAll := ""
 	selections := doc.Find(configuration.ContentSelector)
 	if selections.Length() == 0 {
 		if configuration.Debug {
-			fmt.Println("No content found ! based on content selection rule: '" + configuration.ContentSelector + "' on URL: " + url)
+			log.Printf("No content found matching selector '%s' on URL: %s", configuration.ContentSelector, url)
 		}
+		return nil
 	}
+
+	var count int64
+	allContent := ""
+
 	selections.Each(func(i int, s *goquery.Selection) {
 		count++
-		str := ""
+		var content string
+
 		if configuration.ContentHolder == config.CONTENTHOLDERTEXT {
-			str = s.Text()
-			str = strings.TrimSpace(str)
-			strAll = strAll + str
+			content = strings.TrimSpace(s.Text())
+		} else if configuration.ContentHolder == config.CONTENTHOLDERHTML {
+			content, _ = s.Html()
 		}
-		if configuration.ContentHolder == config.CONTENTHOLDERHTML {
-			str, _ = s.Html()
-			strAll = strAll + str
+
+		allContent += content
+		filename := fmt.Sprintf("%s/%d_%d.txt", configuration.DataDir(), id, count)
+		if err := ioutil.WriteFile(filename, []byte(content), 0644); err != nil {
+			log.Printf("Failed to write content file %s: %v", filename, err)
 		}
-		ioutil.WriteFile(configuration.DataDir()+"/"+strconv.FormatInt(id, 10)+"_"+strconv.FormatInt(count, 10)+".txt", []byte(str), os.FileMode(0777))
 	})
 
-	md5hash := md5.Sum([]byte(strAll))
-
-	// Update database that the link is scrapped
-	err := db.Update(id, count, db.Success, fmt.Sprintf("%x", md5hash))
-	if err != nil {
-		log.Println(err.Error())
-	}
+	md5hash := md5.Sum([]byte(allContent))
+	return db.Update(id, count, db.Success, fmt.Sprintf("%x", md5hash))
 }
 
-// Scraps attributes and create a text file for each page
-func scrapTagAttr(id int64, doc *goquery.Document, configuration config.Configuration) {
+func extractAttributeContent(id int64, doc *goquery.Document, configuration config.Configuration) error {
 	if configuration.Debug {
-		fmt.Println("scrapTag")
+		log.Println("Extracting attribute content")
 	}
 
-	var count int64 = 0
-	strAll := ""
+	var count int64
+	var attributes []string
+
 	selections := doc.Find(configuration.ContentSelector)
 	selections.Each(func(i int, s *goquery.Selection) {
 		count++
-		str, exists := s.Attr(configuration.ContentTagAttr)
-		if exists {
-			// Append links using newline
-			if strAll == "" {
-				strAll = str
-			} else {
-				strAll = strAll + "\n" + str
-			}
+		if attr, exists := s.Attr(configuration.ContentTagAttr); exists {
+			attributes = append(attributes, attr)
 		}
 	})
 
-	// Create a single file for each page
-	ioutil.WriteFile(configuration.DataDir()+"/"+strconv.FormatInt(id, 10)+".txt", []byte(strAll), os.FileMode(0777))
-	md5hash := md5.Sum([]byte(strAll))
+	allContent := strings.Join(attributes, "\n")
+	filename := fmt.Sprintf("%s/%d.txt", configuration.DataDir(), id)
+	if err := ioutil.WriteFile(filename, []byte(allContent), 0644); err != nil {
+		return fmt.Errorf("failed to write attribute file %s: %w", filename, err)
+	}
 
-	// Update database that the link is scrapped
-	err := db.Update(id, count, db.Success, fmt.Sprintf("%x", md5hash))
-	if err != nil {
-		log.Println(err.Error())
+	md5hash := md5.Sum([]byte(allContent))
+	return db.Update(id, count, db.Success, fmt.Sprintf("%x", md5hash))
+}
+
+func completionMonitor(configuration config.Configuration, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit chan bool) {
+	checkInterval := 30 * time.Second
+	consecutiveEmptyChecks := 0
+	maxConsecutiveChecks := 3
+
+	for {
+		time.Sleep(checkInterval)
+		
+		remainingCount := db.CountRemainingRows()
+		log.Printf("Completion monitor: %d URLs remaining in queue", remainingCount)
+		
+		if remainingCount == 0 {
+			consecutiveEmptyChecks++
+			log.Printf("Queue empty (check %d/%d)", consecutiveEmptyChecks, maxConsecutiveChecks)
+			
+			if consecutiveEmptyChecks >= maxConsecutiveChecks {
+				log.Println("Batch processing completed. Initiating shutdown...")
+				
+				// Stop all workers
+				killAllWorker <- true
+				<-killAllWorkerAck
+				
+				// Stop link processor
+				terminateLinkProcessor(killLinkProcessor, killLinkProcessorAck)
+				
+				// Signal main to exit
+				chWaitForExit <- true
+				return
+			}
+		} else {
+			consecutiveEmptyChecks = 0
+		}
 	}
 }

@@ -2,9 +2,11 @@ package crawler
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/therahulprasad/spiders/crawler/config"
@@ -18,172 +20,151 @@ import (
 // 	killLinkProcessorAck <- true
 // }
 
-// Wait for kill signal and
-// Process document to find all eligible links and add it to database
 func linkProcessor(docs chan *goquery.Document, configuration config.Configuration, kill, killLinkProcessorAck chan bool, processDoc bool) {
-	if configuration.Debug == true {
-		fmt.Println("linkProcessor started")
+	if configuration.Debug {
+		log.Println("Link processor started")
 	}
-	// TODO: How do I persist all the details before killing
+
 	for {
 		select {
 		case <-kill:
+			if configuration.Debug {
+				log.Println("Link processor terminated")
+			}
 			killLinkProcessorAck <- true
 			return
 		case doc := <-docs:
 			if processDoc {
-				lsURL(doc, configuration)
+				if err := extractAndQueueLinks(doc, configuration); err != nil {
+					log.Printf("Error processing links from document: %v", err)
+				}
 			}
 		}
 	}
 }
 
-// Process document to find all eligible links and add it to database
-func lsURL(doc *goquery.Document, configuration config.Configuration) {
+func extractAndQueueLinks(doc *goquery.Document, configuration config.Configuration) error {
 	if configuration.Debug {
-		fmt.Println("ls_url")
+		log.Println("Extracting links from document")
 	}
 
-	var finalLinks []string
-	// Find all the links and queue it
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
-		link, ok := s.Attr("href")
-		if ok {
-			finalLink, ok, err := validateURL(link, configuration, doc.Url)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
+	var validLinks []string
 
-			if ok {
-				//finalLink = configuration.ProxyAPI + finalLink
-				if configuration.DisplayMatchedURL {
-					fmt.Println("Valid Link found: " + finalLink)
-				}
-				finalLinks = append(finalLinks, finalLink)
-			} else {
-				if configuration.Debug {
-					fmt.Println("Invalid URL: " + finalLink)
-				}
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		link, exists := s.Attr("href")
+		if !exists {
+			return
+		}
+
+		validatedLink, isValid, err := validateURL(link, configuration, doc.Url)
+		if err != nil {
+			log.Printf("Error validating URL %s: %v", link, err)
+			return
+		}
+
+		if isValid {
+			if configuration.DisplayMatchedURL {
+				log.Printf("Valid link found: %s", validatedLink)
 			}
+			validLinks = append(validLinks, validatedLink)
+		} else if configuration.Debug {
+			log.Printf("Invalid URL rejected: %s", validatedLink)
 		}
 	})
 
-	if len(finalLinks) > 0 {
-		_, err := db.PushMulti(finalLinks, 0)
+	if len(validLinks) > 0 {
+		_, err := db.PushMulti(validLinks, 0)
 		if err != nil {
-			fmt.Println(err.Error())
+			return fmt.Errorf("failed to queue %d links: %w", len(validLinks), err)
 		}
+		log.Printf("Queued %d new links", len(validLinks))
 	}
+
+	return nil
 }
 
 func validateURL(link string, configuration config.Configuration, currentURL *url.URL) (string, bool, error) {
 	if configuration.Debug {
-		fmt.Println("validate_url: " + link)
+		log.Printf("Validating URL: %s", link)
 	}
 
-	var err error
-
-	// If link is empty do nothing
 	if link == "" {
 		return "", false, nil
 	}
 
-	// Find out domain of the url
-	rootUrl, _ := url.Parse(configuration.RootURL)
-	//fmt.Println(rootUrl)
-	//fmt.Println(rootUrl.Scheme)
-	//fmt.Println(rootUrl.Host)
-	//fmt.Println(err)
-	//if err != nil {return "", false, err}
+	rootURL, err := url.Parse(configuration.RootURL)
+	if err != nil {
+		return "", false, fmt.Errorf("invalid root URL %s: %w", configuration.RootURL, err)
+	}
 
-	//configuration.RootURL
+	finalLink := buildAbsoluteURL(link, currentURL, rootURL, configuration.ProxyAPI)
 
-	domainURL := ""
-	if configuration.ProxyAPI == "" {
-		domainURL += currentURL.Scheme + "://"
-		domainURL += currentURL.Host
+	if !isURLAllowed(finalLink, configuration) {
+		return finalLink, false, nil
+	}
+
+	finalLink = sanitizeURL(finalLink, configuration)
+
+	return finalLink, true, nil
+}
+
+func buildAbsoluteURL(link string, currentURL, rootURL *url.URL, proxyAPI string) string {
+	if strings.HasPrefix(link, "http") {
+		return link
+	}
+
+	var baseURL *url.URL
+	if proxyAPI == "" {
+		baseURL = currentURL
 	} else {
-		domainURL += rootUrl.Scheme + "://"
-		domainURL += rootUrl.Host
+		baseURL = rootURL
 	}
 
-	currentPath := currentURL.Path
-
-	// Check if link is relative or absolute
-	isAbsoluteURL := false
-	if len(link) >= 4 && link[0:4] == "http" {
-		isAbsoluteURL = true
+	if strings.HasPrefix(link, "/") {
+		return fmt.Sprintf("%s://%s%s", baseURL.Scheme, baseURL.Host, link)
 	}
 
-	// Build final link to be added to database
-	finalLink := link
-	if !isAbsoluteURL {
-		// If link is relative to root
-		if link[0:1] == "/" {
-			finalLink = domainURL + link
-		} else {
-			if configuration.ProxyAPI == "" {
-				finalPath := path.Join(path.Dir(currentPath), link)
-				finalLink = domainURL + finalPath
-			} else {
-				if configuration.Debug {
-					fmt.Println("The case of URL not relative to ROOT with ProxyAPI is not handled")
-				}
-			}
-		}
+	if proxyAPI == "" {
+		finalPath := path.Join(path.Dir(currentURL.Path), link)
+		return fmt.Sprintf("%s://%s%s", baseURL.Scheme, baseURL.Host, finalPath)
 	}
 
-	// Check if URL matches configuration regex
-	matched := true
+	return link
+}
+
+func isURLAllowed(finalLink string, configuration config.Configuration) bool {
 	if configuration.LinkValidator != "" {
-		matched, err = regexp.MatchString(configuration.LinkValidator, finalLink)
-		if configuration.Debug {
-			if matched {
-				fmt.Println("Link validator matched: " + finalLink)
-			} else {
-				fmt.Println("Link validator not matched: " + finalLink)
-			}
-		}
+		matched, err := regexp.MatchString(configuration.LinkValidator, finalLink)
 		if err != nil {
-			return "", false, err
+			log.Printf("Error matching link validator regex: %v", err)
+			return false
+		}
+		if !matched {
+			return false
 		}
 	}
 
-	invalid_matched := false
-	// Check if link is invalid and return empty url
 	for _, invalidator := range configuration.LinkInvalidators {
-		// If regex is empty then skip
 		if invalidator == "" {
 			continue
 		}
-		invalid_matched, _ = regexp.MatchString(invalidator, finalLink) // If regex does not match, ignore
-		if invalid_matched {
-			matched = false
-			break
+		matched, err := regexp.MatchString(invalidator, finalLink)
+		if err != nil {
+			log.Printf("Error matching link invalidator regex: %v", err)
+			continue
+		}
+		if matched {
+			return false
 		}
 	}
 
-	// Check if links needs to be sanitized
-	if matched && configuration.LinkSanitizer != "" {
+	return true
+}
+
+func sanitizeURL(finalLink string, configuration config.Configuration) string {
+	if configuration.LinkSanitizer != "" {
 		re := regexp.MustCompile(configuration.LinkSanitizer)
 		finalLink = re.ReplaceAllString(finalLink, configuration.LinkSanitizerReplacement)
 	}
-
-	// fmt.Println("validate_url > link : " + link)
-	// fmt.Println("validate_url > finalLink after sanitizarion : " + finalLink)
-	// if matched {
-	// 	// fmt.Println("validate_url > matched : yes")
-
-	// } else {
-	// 	// fmt.Println("validate_url > matched : no")
-	// }
-
-	return finalLink, matched, nil
-	// Push URL duplicated will be ignored
-	//if matched {
-	//	_, err := db.Push(finalLink, 0)
-	//	if err != nil {
-	//		fmt.Println("Push Error: " + finalLink + " : " + err.Error())
-	//	}
-	//}
+	return finalLink
 }

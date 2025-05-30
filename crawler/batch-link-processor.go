@@ -13,7 +13,7 @@ import (
 	"github.com/therahulprasad/spiders/crawler/db"
 )
 
-func push_all_batch_links(configuration config.Configuration) {
+func pushAllBatchLinks(configuration config.Configuration) error {
 
 	// To store list of all the processed links
 	var finalLinks []string
@@ -86,7 +86,6 @@ func push_all_batch_links(configuration config.Configuration) {
 		log.Fatal("batch_url and batch_file both cant be empty for project_type: batch")
 	}
 
-	if _, err := db.PushMulti(finalLinks, -1); err != nil {
-		log.Fatalf("Failed to push batch links: %v", err)
-	}
+	_, err := db.PushMulti(finalLinks, -1)
+	return err
 }

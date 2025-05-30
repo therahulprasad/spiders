@@ -52,9 +52,9 @@ func Setup(config_path string, resume bool) config.Configuration {
 		log.Fatal("web_count must be more than 0")
 	}
 
-	// Initiate database in the directory
-	// TODO: If resume flag is set then Database must already be present
-	db.Setup(configuration, resume)
+	if err := db.Setup(configuration, resume); err != nil {
+		log.Fatal("Database setup failed:", err)
+	}
 
 	return configuration
 }

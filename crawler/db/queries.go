@@ -11,78 +11,71 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// Inserts url into database and returns ID if successful
-// Returns error in case of failure
-// Duplicate links are automatically ignored
-func Push(url string, parent_id int) (int64, error) {
+func Push(url string, parentID int) (int64, error) {
 	lockDbAccess()
 	defer ackDbWorkDone()
-	return push(url, parent_id)
+	return push(url, parentID)
 }
 
-func push(url string, parent_id int) (int64, error) {
-	var id int64 = -1
-	if db != nil {
-		//stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
-		//if err != nil {
-		//	return -1, err
-		//}
+func push(url string, parentID int) (int64, error) {
+	if db == nil {
+		return -1, errors.New("database not initialized")
+	}
 
-		res, err := pushStmt.Exec(url, "2017-01-31 10:13", "waiting", parent_id)
-		if err != nil {
-			return -1, err
-		}
+	res, err := pushStmt.Exec(url, time.Now().Format(time.RFC3339), StatusWaiting, parentID)
+	if err != nil {
+		return -1, fmt.Errorf("failed to insert URL %s: %w", url, err)
+	}
 
-		id, err = res.LastInsertId()
-		if err != nil {
-			return -1, err
-		}
-	} else {
-		log.Fatal("Database not initialized")
+	id, err := res.LastInsertId()
+	if err != nil {
+		return -1, fmt.Errorf("failed to get last insert ID: %w", err)
 	}
 
 	return id, nil
 }
 
-func PushMulti(urls []string, parent_id int) ([]int64, error) {
+func PushMulti(urls []string, parentID int) ([]int64, error) {
 	lockDbAccess()
 	defer ackDbWorkDone()
-	return pushMulti(urls, parent_id)
+	return pushMulti(urls, parentID)
 }
 
-func pushMulti(urls []string, parent_id int) ([]int64, error) {
+func pushMulti(urls []string, parentID int) ([]int64, error) {
+	if db == nil {
+		return nil, errors.New("database not initialized")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	var ids []int64
-	if db != nil {
-		//stmt, err := db.Prepare("INSERT OR IGNORE INTO queue(link, added_on, status, parent_id) values(?,?,?,?)")
-		//if err != nil { return ids, err }
+	now := time.Now().Format(time.RFC3339)
 
-		tx, err := db.Begin()
+	for _, url := range urls {
+		res, err := tx.Stmt(pushMultiStmt).Exec(url, now, StatusWaiting, parentID)
 		if err != nil {
-			return ids, err
+			return nil, fmt.Errorf("failed to insert URL %s: %w", url, err)
 		}
 
-		for _, url := range urls {
-			res, err := tx.Stmt(pushMultiStmt).Exec(url, "2017-01-31 10:13", "waiting", parent_id)
-			if err != nil {
-				return ids, err
-			}
-
-			id, err := res.LastInsertId()
-			if err != nil {
-				return ids, err
-			}
-
-			ids = append(ids, id)
+		id, err := res.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get last insert ID for URL %s: %w", url, err)
 		}
-		tx.Commit()
-	} else {
-		log.Fatal("Database not initialized")
+
+		ids = append(ids, id)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return ids, nil
 }
 
-// Returns a node to be crawled, returns error in case fo failure
 func Pop() (Node, error) {
 	lockDbAccess()
 	defer ackDbWorkDone()
@@ -90,118 +83,88 @@ func Pop() (Node, error) {
 }
 
 func pop() (Node, error) {
-	if db != nil {
-		// Update the row which will be popped
-
-		uuid := pseudo_uuid()
-		//sql_update := `UPDATE queue SET status=? WHERE id IN (
-		//		    SELECT id from queue WHERE status LIKE "waiting" ORDER BY id ASC LIMIT 1
-		//		)`
-		//stmt, err := db.Prepare(sql_update)
-		//
-		//if err != nil {
-		//	return Node {}, err
-		//} else {
-		//	defer stmt.Close();
-		//}
-
-		_, err := popStmt.Exec(uuid)
-
-		if err != nil {
-			return Node{}, err
-		}
-
-		// Pop the row
-		sql_select := "SELECT * FROM queue WHERE status LIKE ?"
-		rows, err := db.Query(sql_select, uuid)
-		if err != nil {
-			return Node{}, err
-		}
-
-		node := Node{}
-
-		layout := "2006-01-02T15:04:05Z"
-		for rows.Next() {
-			var crawledOn, addedOn, md5hash sql.NullString
-			var matches sql.NullInt64
-			err := rows.Scan(&node.Id, &node.Link, &addedOn, &node.Status, &crawledOn, &node.ParentId, &matches, &md5hash)
-			if err != nil {
-				return Node{}, err
-			}
-
-			if crawledOn.Valid {
-				node.CrawledOn, err = time.Parse(layout, crawledOn.String)
-				if err != nil {
-					return Node{}, err
-				}
-			}
-			if addedOn.Valid {
-				node.AddedOn, err = time.Parse(layout, addedOn.String)
-				if err != nil {
-					return Node{}, err
-				}
-			}
-			if matches.Valid {
-				node.Matches = matches.Int64
-			}
-			if md5hash.Valid {
-				node.MD5 = md5hash.String
-			}
-		}
-
-		return node, nil
-	} else {
-		log.Fatal("Database not initialized")
+	if db == nil {
+		return Node{}, errors.New("database not initialized")
 	}
 
-	return Node{}, nil
+	uuid := generateUUID()
+	_, err := popStmt.Exec(uuid, StatusWaiting)
+	if err != nil {
+		return Node{}, fmt.Errorf("failed to mark URL as processing: %w", err)
+	}
+
+	sqlSelect := "SELECT * FROM queue WHERE status = ?"
+	rows, err := db.Query(sqlSelect, uuid)
+	if err != nil {
+		return Node{}, fmt.Errorf("failed to query for URL: %w", err)
+	}
+	defer rows.Close()
+
+	var node Node
+	for rows.Next() {
+		var crawledOn, addedOn, md5hash sql.NullString
+		var matches sql.NullInt64
+
+		err := rows.Scan(&node.ID, &node.Link, &addedOn, &node.Status, &crawledOn, &node.ParentID, &matches, &md5hash)
+		if err != nil {
+			return Node{}, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		if addedOn.Valid {
+			node.AddedOn, _ = time.Parse(time.RFC3339, addedOn.String)
+		}
+		if crawledOn.Valid {
+			node.CrawledOn, _ = time.Parse(time.RFC3339, crawledOn.String)
+		}
+		if matches.Valid {
+			node.Matches = matches.Int64
+		}
+		if md5hash.Valid {
+			node.MD5 = md5hash.String
+		}
+	}
+
+	return node, nil
 }
 
-// CountRemainingRows counts number of remaining rows listed in database
 func CountRemainingRows() int {
-	count := 0
-	sqlCountRemaining := "SELECT COUNT(1) as remaining FROM queue WHERE status LIKE 'waiting'"
-	err := db.QueryRow(sqlCountRemaining).Scan(&count)
+	var count int
+	sqlCountRemaining := "SELECT COUNT(1) FROM queue WHERE status = ?"
+	err := db.QueryRow(sqlCountRemaining, StatusWaiting).Scan(&count)
 	if err != nil {
-		log.Fatal("Error occuring while reading from database:" + err.Error())
+		log.Printf("Error counting remaining rows: %v", err)
+		return 0
 	}
 	return count
 }
 
-// Update status of row to success or failure
-func Update(pk, match_count int64, status, md5hash string) error {
+func Update(pk, matchCount int64, status, md5hash string) error {
 	lockDbAccess()
 	defer ackDbWorkDone()
-	return update(pk, match_count, status, md5hash)
+	return update(pk, matchCount, status, md5hash)
 }
 
-func update(pk, match_count int64, status, md5hash string) error {
-	// If status is not success or failure then return error
-	if !(status == Success || status == ValidationFailed) {
-		return errors.New("Invalid input")
+func update(pk, matchCount int64, status, md5hash string) error {
+	if status != StatusSuccess && status != StatusValidationFailed {
+		return fmt.Errorf("invalid status '%s': must be '%s' or '%s'", 
+			status, StatusSuccess, StatusValidationFailed)
 	}
 
-	//sql_update := "UPDATE queue SET status=?, matches = ?, md5 = ? WHERE id = ?"
-	//stmt, err := db.Prepare(sql_update)
-	//if err != nil {return err}
-
-	_, err := updateStmt.Exec(status, match_count, md5hash, pk)
+	_, err := updateStmt.Exec(status, matchCount, md5hash, pk)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update row %d: %w", pk, err)
 	}
 
 	return nil
 }
 
-func pseudo_uuid() (uuid string) {
+func generateUUID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
-		fmt.Println("Error: ", err)
-		return
+		log.Printf("Error generating UUID: %v", err)
+		return ""
 	}
 
-	uuid = fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-
-	return
+	return fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }

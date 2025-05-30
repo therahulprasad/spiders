@@ -2,49 +2,48 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"log"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
 var config Configuration
 
-// Load configuration from json file
 func Load(path string) error {
-	// Open file
 	configBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read config file %s: %w", path, err)
 	}
 
-	// Set default values
 	config.DisplayMatchedURL = false
 
-	// Decode YAML
-	yaml.Unmarshal(configBytes, &config)
-	if err != nil {
-		return err
+	if err := yaml.Unmarshal(configBytes, &config); err != nil {
+		return fmt.Errorf("failed to parse YAML config: %w", err)
 	}
 
-	// Validate supported Project Type
-	if !(config.ProjectType == PROJECTTYPECRAWL || config.ProjectType == PROJECTTYPEBACTH) {
-		log.Fatal("Config:project_type - Only " + PROJECTTYPEBACTH + " & " + PROJECTTYPECRAWL + " is supported.")
-	}
-
-	// Validate supported Content Holder
-	if !(config.ContentHolder == CONTENTHOLDERTEXT || config.ContentHolder == CONTENTHOLDERATTR || config.ContentHolder == CONTENTHOLDERHTML) {
-		log.Fatal("Config:content_holder - Only " + CONTENTHOLDERHTML + ", " + CONTENTHOLDERTEXT + " & " + CONTENTHOLDERATTR + " is supported.")
-	}
-
-	// There is nothing to validate now :(
-	return nil
+	return validateConfig()
 }
 
-// Get gets configuration object if loaded otherwise returns error
+func validateConfig() error {
+	if config.ProjectType != PROJECTTYPECRAWL && config.ProjectType != PROJECTTYPEBATCH {
+		return fmt.Errorf("invalid project_type '%s': must be '%s' or '%s'", 
+			config.ProjectType, PROJECTTYPECRAWL, PROJECTTYPEBATCH)
+	}
+
+	validContentHolders := []string{CONTENTHOLDERTEXT, CONTENTHOLDERATTR, CONTENTHOLDERHTML}
+	for _, valid := range validContentHolders {
+		if config.ContentHolder == valid {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid content_holder '%s': must be one of %v", 
+		config.ContentHolder, validContentHolders)
+}
+
 func Get() (Configuration, error) {
 	if config.ProjectType == "" {
-		return Configuration{}, errors.New("Configuration not loaded")
+		return Configuration{}, errors.New("configuration not loaded - call Load() first")
 	}
 	return config, nil
 }

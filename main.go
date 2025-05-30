@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,55 +11,79 @@ import (
 	"github.com/therahulprasad/spiders/crawler"
 )
 
-// VERSION it will be printed when -version flag is used
-const VERSION = "0.5"
+const (
+	VERSION     = "0.5"
+	MAJORCHANGE = "Batch Processing using batch_file"
+)
 
-// MAJORCHANGE Whats new in this version, it will be printed when -version flag is used
-const MAJORCHANGE = "Batch Processing using batch_file"
+type App struct {
+	configPath string
+	resume     bool
+	exitChan   chan bool
+	killChan   chan bool
+	quitChan   chan os.Signal
+}
 
-// const DEFAULT_CONFIG_FILENAME = "config.yaml"
-
-func main() {
-	verFlag := flag.Bool("v", false, "To get current version")
-	configPathFlag := flag.String("c", "", "Path of json config file")
-	resumeFlag := flag.Bool("r", false, "Resume incomplete project")
-	flag.Parse()
-	if *configPathFlag == "" {
-		fmt.Println("Config flag is mising")
-		os.Exit(1)
+func NewApp() *App {
+	return &App{
+		exitChan: make(chan bool),
+		killChan: make(chan bool),
+		quitChan: make(chan os.Signal, 2),
 	}
-	if *verFlag {
-		fmt.Println("Multi threaded web crawler to collect text")
-		fmt.Println("Version: " + VERSION)
+}
+
+func (app *App) parseFlags() {
+	var (
+		showVersion = flag.Bool("v", false, "Show version information")
+		configPath  = flag.String("c", "", "Path to config.yaml file (required)")
+		resume      = flag.Bool("r", false, "Resume incomplete project")
+	)
+	flag.Parse()
+
+	if *showVersion {
+		app.printVersion()
 		os.Exit(0)
 	}
 
-	configPath := *configPathFlag
-	resume := *resumeFlag
+	if *configPath == "" {
+		log.Fatal("Config file path is required. Use -c flag to specify config.yaml")
+	}
 
-	// Channel which waits for Crawler to end
-	chExitWait := make(chan bool)
+	app.configPath = *configPath
+	app.resume = *resume
+}
 
-	// Kill signal for workers
-	chKill := make(chan bool)
+func (app *App) printVersion() {
+	fmt.Printf("Spiders Web Crawler v%s\n", VERSION)
+	fmt.Printf("Latest: %s\n", MAJORCHANGE)
+}
 
-	chQuit := make(chan os.Signal, 2)
-	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
+func (app *App) setupSignalHandling() {
+	signal.Notify(app.quitChan, os.Interrupt, syscall.SIGTERM)
 
-	// Ctrl + C handler
-	go func(chQuit chan os.Signal, ch_kill chan bool) {
-		// Wait to Ctrl + C
-		<-chQuit
+	go func() {
+		<-app.quitChan
+		fmt.Println("\nShutdown signal received. Stopping crawler...")
+		app.killChan <- true
+	}()
+}
 
-		// send kill signal to processor
-		chKill <- true
-	}(chQuit, chKill)
+func (app *App) run() {
+	app.parseFlags()
+	app.setupSignalHandling()
 
-	// Start the crawler
-	crawler.Initialize(configPath, chExitWait, chKill, resume)
+	fmt.Printf("Starting Spiders crawler with config: %s\n", app.configPath)
+	if app.resume {
+		fmt.Println("Resuming previous crawl session")
+	}
 
-	// Wait for Crawler to end
-	<-chExitWait
+	crawler.Initialize(app.configPath, app.exitChan, app.killChan, app.resume)
 
-	fmt.Println("Bye")
+	<-app.exitChan
+	fmt.Println("Crawler stopped successfully. Goodbye!")
+}
+
+func main() {
+	app := NewApp()
+	app.run()
 }
