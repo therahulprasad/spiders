@@ -34,6 +34,15 @@ link_sanitizer_replacement: ""
 # It will be ignored if project_type is not batch
 batch_url: ""
 
+# If the project type is batch then either batch_url is needed or batch_file is needed
+# batch_file is the relative path of the file which contains list of all the urls to be fetched
+# if batch_url is present, batch_file will be ignored
+# Content must be line separated list of urls, For example
+# https://somewebsite.com/page-hello
+# https://somewebsite.com/page-world
+# https://somewebsite.com/page-101
+batch_file: ""
+
 ### Parser settings
 # Check for the content in the page only if this css selector is present, keep it blank to ignore this
 page_validator: ""

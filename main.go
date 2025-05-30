@@ -11,15 +11,15 @@ import (
 )
 
 // VERSION it will be printed when -version flag is used
-const VERSION = "0.4"
+const VERSION = "0.5"
 
 // MAJORCHANGE Whats new in this version, it will be printed when -version flag is used
-const MAJORCHANGE = "Batch Processing"
+const MAJORCHANGE = "Batch Processing using batch_file"
 
 // const DEFAULT_CONFIG_FILENAME = "config.yaml"
 
 func main() {
-	verFlag := flag.Bool("v", false, "To get current versiion")
+	verFlag := flag.Bool("v", false, "To get current version")
 	configPathFlag := flag.String("c", "", "Path of json config file")
 	resumeFlag := flag.Bool("r", false, "Resume incomplete project")
 	flag.Parse()
@@ -27,7 +27,7 @@ func main() {
 		fmt.Println("Config flag is mising")
 		os.Exit(1)
 	}
-	if *verFlag == true {
+	if *verFlag {
 		fmt.Println("Multi threaded web crawler to collect text")
 		fmt.Println("Version: " + VERSION)
 		os.Exit(0)
