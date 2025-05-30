@@ -34,24 +34,18 @@ func shutdownHandler(chKill, killLinkProcessor, killLinkProcessorAck, killAllWor
 }
 
 type Crawler struct {
-	config           config.Configuration
-	docsChan         chan *goquery.Document
-	killWorker       chan int
-	numWorkers       int
-	completionChan   chan bool
-	activeWorkers    int
-	workDoneChan     chan bool
+	config     config.Configuration
+	docsChan   chan *goquery.Document
+	killWorker chan int
+	numWorkers int
 }
 
 func NewCrawler(cfg config.Configuration) *Crawler {
 	return &Crawler{
-		config:         cfg,
-		docsChan:       make(chan *goquery.Document),
-		killWorker:     make(chan int),
-		numWorkers:     cfg.WebCount,
-		completionChan: make(chan bool),
-		activeWorkers:  0,
-		workDoneChan:   make(chan bool),
+		config:     cfg,
+		docsChan:   make(chan *goquery.Document),
+		killWorker: make(chan int),
+		numWorkers: cfg.WebCount,
 	}
 }
 
@@ -75,7 +69,7 @@ func (c *Crawler) initializeURLs(resume bool) error {
 
 func (c *Crawler) startWorkers(killWorker chan int) {
 	for i := 0; i < c.numWorkers; i++ {
-		go processPageWorker(c.config, c.docsChan, killWorker, c.workDoneChan)
+		go processPageWorker(c.config, c.docsChan, killWorker)
 	}
 }
 
@@ -131,9 +125,22 @@ func workerManager(killWorker chan int, workerCount int, killAllWorker, killAllW
 		select {
 		case <-killAllWorker:
 			log.Printf("Stopping %d workers", workerCount)
+			
+			// Send kill signals with timeout to prevent hanging
 			for i := 0; i < workerCount; i++ {
-				killWorker <- 1
+				select {
+				case killWorker <- 1:
+					// Successfully sent kill signal
+				case <-time.After(1 * time.Second):
+					// Worker might have already terminated, continue
+					log.Printf("Worker %d may have already terminated", i+1)
+				}
 			}
+			
+			// Give workers a moment to clean up
+			time.Sleep(100 * time.Millisecond)
+			log.Println("Worker termination signals sent")
+			
 			killAllWorkerAck <- true
 			return
 		}
@@ -143,7 +150,7 @@ func workerManager(killWorker chan int, workerCount int, killAllWorker, killAllW
 func randomDelay(min, max int) int {
 	return rand.Intn(max-min) + min
 }
-func processPageWorker(configuration config.Configuration, chLinkProcessor chan *goquery.Document, killWorker chan int, workDoneChan chan bool) {
+func processPageWorker(configuration config.Configuration, chLinkProcessor chan *goquery.Document, killWorker chan int) {
 	emptyQueueCount := 0
 	maxEmptyChecks := 3 // Number of consecutive empty queue checks before considering work done
 
@@ -173,13 +180,7 @@ func processPageWorker(configuration config.Configuration, chLinkProcessor chan 
 				if configuration.ProjectType == config.PROJECTTYPEBATCH && emptyQueueCount >= maxEmptyChecks {
 					remainingCount := db.CountRemainingRows()
 					if remainingCount == 0 {
-						if configuration.Debug {
-							log.Println("Batch processing complete, worker shutting down")
-						}
-						select {
-						case workDoneChan <- true:
-						default:
-						}
+						log.Println("Batch processing complete, worker shutting down")
 						return
 					}
 				}
@@ -300,15 +301,17 @@ func extractAttributeContent(id int64, doc *goquery.Document, configuration conf
 }
 
 func completionMonitor(configuration config.Configuration, killLinkProcessor, killLinkProcessorAck, killAllWorker, killAllWorkerAck, chWaitForExit chan bool) {
-	checkInterval := 30 * time.Second
+	checkInterval := 5 * time.Second  // Reduced from 30 seconds to 5 seconds
 	consecutiveEmptyChecks := 0
-	maxConsecutiveChecks := 3
+	maxConsecutiveChecks := 2  // Reduced from 3 to 2 for faster detection
 
 	for {
 		time.Sleep(checkInterval)
 		
 		remainingCount := db.CountRemainingRows()
-		log.Printf("Completion monitor: %d URLs remaining in queue", remainingCount)
+		if configuration.Debug {
+			log.Printf("Completion monitor: %d URLs remaining in queue", remainingCount)
+		}
 		
 		if remainingCount == 0 {
 			consecutiveEmptyChecks++
@@ -317,14 +320,22 @@ func completionMonitor(configuration config.Configuration, killLinkProcessor, ki
 			if consecutiveEmptyChecks >= maxConsecutiveChecks {
 				log.Println("Batch processing completed. Initiating shutdown...")
 				
-				// Stop all workers
+				// Stop all workers first
+				log.Println("Stopping workers...")
 				killAllWorker <- true
+				
+				// Wait for workers to stop
+				log.Println("Waiting for workers to terminate...")
 				<-killAllWorkerAck
+				log.Println("All workers stopped")
 				
 				// Stop link processor
+				log.Println("Stopping link processor...")
 				terminateLinkProcessor(killLinkProcessor, killLinkProcessorAck)
+				log.Println("Link processor stopped")
 				
 				// Signal main to exit
+				log.Println("Signaling main application to exit...")
 				chWaitForExit <- true
 				return
 			}
